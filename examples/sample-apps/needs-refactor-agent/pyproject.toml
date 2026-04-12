@@ -1,0 +1,8 @@
+[project]
+name = "needs-refactor-agent"
+version = "0.1.0"
+description = "A data analysis agent that needs platform compliance refactoring"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.9,<4.0",
+]

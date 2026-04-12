@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# UV
+uv.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local data
+*.db
+*.sqlite
+
+# Secrets
+.env
+.bedrock_agentcore/
+
+# AgentCore config (contains account-specific ARNs)
+.bedrock_agentcore.yaml
+
+# Account-specific / runtime / build artifacts
+.agentcore.json
+.bedrock_agentcore/entrypoint/dependencies.zip
+.bedrock_agentcore/entrypoint/dependencies.hash
+memory/

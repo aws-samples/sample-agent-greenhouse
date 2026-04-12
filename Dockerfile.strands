@@ -1,0 +1,56 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl jq && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI (pre-built binary via official installer)
+# The claude-agent-sdk package bundles the CLI binary, so we symlink it to PATH
+RUN pip install --no-cache-dir claude-agent-sdk && \
+    CLAUDE_BIN=$(find /usr/local/lib -name "claude" -path "*/claude_agent_sdk/_bundled/*" | head -1) && \
+    if [ -n "$CLAUDE_BIN" ]; then \
+        chmod +x "$CLAUDE_BIN" && \
+        ln -sf "$CLAUDE_BIN" /usr/local/bin/claude; \
+    fi && \
+    claude --version || echo "WARNING: claude binary not found"
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install strands-agents (claude-agent-sdk already installed above)
+RUN pip install --no-cache-dir strands-agents strands-agents-tools
+
+# Copy application code
+COPY . .
+
+# Copy platform workspace files (deployment artifacts, not runtime data).
+# These are shared across all users and don't change at runtime.
+# User-specific memory is handled by AgentCore Memory (API-level isolation).
+COPY workspace/SOUL.md /app/workspace/SOUL.md
+COPY workspace/IDENTITY.md /app/workspace/IDENTITY.md
+COPY workspace/AGENTS.md /app/workspace/AGENTS.md
+
+# Ensure workspace skills are in the image
+COPY workspace/skills/ /app/workspace/skills/
+
+# Create non-root user (Claude Code CLI refuses to run as root)
+RUN useradd -m -s /bin/bash plato && \
+    chown -R plato:plato /app
+USER plato
+
+# Set HOME for Claude Code CLI config
+ENV HOME=/home/plato
+
+# Configure Claude Code to use Bedrock via IAM (no API key needed)
+ENV CLAUDE_CODE_USE_BEDROCK=1
+ENV AWS_REGION=us-west-2
+ENV ANTHROPIC_MODEL=us.anthropic.claude-sonnet-4-6
+ENV ANTHROPIC_DEFAULT_HAIKU_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
+
+EXPOSE 8080
+
+ENTRYPOINT ["python", "entrypoint.py"]

@@ -1,0 +1,8 @@
+[project]
+name = "good-weather-agent"
+version = "0.1.0"
+description = "A well-designed weather agent for AgentCore deployment"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.9,<4.0",
+]

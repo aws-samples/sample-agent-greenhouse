@@ -1,0 +1,199 @@
+name: plato
+description: "Platform agent for Amazon Bedrock AgentCore \u2014 helps developers\
+  \ build, review, and deploy agent applications"
+version: 1.0.0
+skills:
+- name: aidlc_inception
+  description: Guided AIDLC inception workflow
+  tools:
+  - aidlc_start_inception
+  - aidlc_get_questions
+  - aidlc_submit_answers
+  - aidlc_approve_stage
+  - aidlc_reject_stage
+  - aidlc_get_status
+  - aidlc_generate_artifacts
+- name: code_review
+  description: Security and quality code reviewer
+  tools:
+  - Read
+  - Glob
+  - Grep
+- name: debug
+  description: Debug and troubleshooting skill
+  tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash
+- name: deployment_config
+  description: Deployment configuration generator
+  tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+- name: design_advisor
+  description: Architecture and platform readiness assessor
+  tools:
+  - Read
+  - Glob
+  - Grep
+- name: fleet_ops
+  description: Fleet operations management
+  tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash
+- name: governance
+  description: Governance and compliance checks
+  tools:
+  - Read
+  - Glob
+  - Grep
+- name: issue_creator
+  description: Structured GitHub issue creator
+  tools:
+  - create_spec_violation_issue
+  - create_issues_from_review
+- name: knowledge
+  description: Knowledge base and reference lookup
+  tools:
+  - Read
+  - Glob
+  - Grep
+- name: monitoring
+  description: Monitoring and alerting setup
+  tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash
+- name: observability
+  description: Observability instrumentation guidance
+  tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash
+- name: onboarding
+  description: Developer onboarding guidance
+  tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+- name: pr_review
+  description: PR review with spec tracing
+  tools:
+  - review_pull_request
+- name: scaffold
+  description: Project skeleton generator
+  tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+- name: spec_compliance
+  description: Spec compliance checker
+  tools:
+  - check_spec_compliance
+  - check_single_ac
+- name: test_case_generator
+  description: Spec-to-test-case generator (1:1 AC-to-TC)
+  tools:
+  - generate_test_cases_from_spec
+tools:
+- github_tool
+- claude_code_tool
+mcp_servers: {}
+policies:
+  tool_allowlist: []
+  tool_denylist: []
+  cedar_policies: []
+  max_tool_calls_per_turn: null
+memory_config:
+  namespace_template: /plato/{actorId}/
+  persist_types:
+  - inception_spec
+  - compliance_report
+  - review_findings
+  - design_assessment
+  - deployment_config
+  ttl_days: 90
+  extraction_enabled: false
+  consolidation_enabled: false
+eval_criteria:
+- name: spec_quality
+  description: AIDLC spec scoring rubric
+  threshold: 0.8
+  scorer: spec_scoring.ScoreSpec
+- name: code_review_coverage
+  description: Code review must check security, quality, and readiness
+  threshold: 0.9
+  scorer: evaluator.code_review.CodeReviewEvaluator
+- name: readiness_checklist
+  description: Platform readiness C1-C12 checklist
+  threshold: 12
+  scorer: evaluator.design.DesignEvaluator
+hooks:
+- hook: SoulSystemHook
+  category: foundation
+  params: {}
+- hook: AuditHook
+  category: foundation
+  params: {}
+- hook: TelemetryHook
+  category: foundation
+  params: {}
+- hook: GuardrailsHook
+  category: foundation
+  params: {}
+- hook: MemoryHook
+  category: domain
+  params: {}
+- hook: ModelMetricsHook
+  category: domain
+  params: {}
+- hook: ToolPolicyHook
+  category: domain
+  params:
+    allowlist: []
+    denylist: []
+- hook: ApprovalHook
+  category: domain
+  params:
+    tools_requiring_approval: []
+    default_action: block
+- hook: BusinessMetricsHook
+  category: domain
+  params: {}
+- hook: HallucinationDetectorHook
+  category: domain
+  params: {}
+- hook: OTELSpanHook
+  category: domain
+  params: {}
+- hook: SessionRecordingHook
+  category: domain
+  params: {}
+- hook: MemoryExtractionHook
+  category: optional
+  enabled_by: memory_config.extraction_enabled
+  params: {}
+- hook: ConsolidationHook
+  category: optional
+  enabled_by: memory_config.consolidation_enabled
+  params: {}
+persona:
+  tone: technical
+  communication_style: concise but thorough
+  role: "platform agent \u2014 architect, advisor, governance enforcer"
+  constraints:
+  - "NOT a coding agent \u2014 does not write application code"
+  - "Reviews, assesses, scaffolds, and configures \u2014 does not run user agents"
+workspace_context_enabled: true

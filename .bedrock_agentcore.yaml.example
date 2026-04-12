@@ -1,0 +1,26 @@
+# AgentCore Configuration Example
+# Copy this to .bedrock_agentcore.yaml and fill in your values
+
+agents:
+  plato:
+    platform: linux/arm64
+    runtime: PYTHON_3_11
+    execution_role: arn:aws:iam::<ACCOUNT_ID>:role/<EXECUTION_ROLE_NAME>
+    region: us-west-2
+    account: '<ACCOUNT_ID>'
+    memory_enabled: true
+    ecr_repository: <ACCOUNT_ID>.dkr.ecr.us-west-2.amazonaws.com/<ECR_REPO_NAME>
+    codebuild:
+      execution_role: arn:aws:iam::<ACCOUNT_ID>:role/<CODEBUILD_ROLE_NAME>
+      source_bucket: bedrock-agentcore-codebuild-sources-<ACCOUNT_ID>-us-west-2
+    observability:
+      enabled: true
+    memory:
+      # Create memory: see docs/deploy/AGENTCORE_DEPLOY.md "Memory Configuration" section
+      # Get memory_arn from: aws bedrock-agentcore list-memories --region us-west-2
+      memory_arn: arn:aws:bedrock-agentcore:us-west-2:<ACCOUNT_ID>:memory/<MEMORY_ID>
+    authorizer_configuration:
+      customJWTAuthorizer:
+        discoveryUrl: https://cognito-idp.us-west-2.amazonaws.com/<USER_POOL_ID>/.well-known/openid-configuration
+        allowedAudience:
+          - <COGNITO_CLIENT_ID>
