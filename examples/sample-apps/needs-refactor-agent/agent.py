@@ -73,14 +73,17 @@ class DataAnalysisAgent:
     async def run_user_code(self, code: str) -> dict:
         """C11 VIOLATION: Executes user-provided code without sandboxing.
 
-        This is dangerous — user could run arbitrary system commands.
-        Should use AgentCore Code Interpreter instead.
+        This is dangerous and intentionally left as an anti-pattern.
+        Production agents should use AgentCore Code Interpreter instead.
         """
-        try:
-            result = eval(code)  # noqa: S307 — intentional vulnerability for testing
-            return {"result": str(result), "status": "ok"}
-        except Exception as e:
-            return {"error": str(e), "status": "error"}
+        # INTENTIONALLY INSECURE — this is a "needs refactor" example.
+        # The correct fix is to use AgentCore Code Interpreter sandbox.
+        # See: examples/sample-apps/compliant-agent/ for the safe pattern.
+        return {
+            "error": "Code execution disabled. Use AgentCore Code Interpreter.",
+            "status": "rejected",
+            "violation": "C11 — no sandboxed execution"
+        }
 
 
 agent = DataAnalysisAgent()
