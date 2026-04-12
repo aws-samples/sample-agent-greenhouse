@@ -377,10 +377,6 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and how to add new skills or domain agents.
 
-## Contributors
-
-- [Melanie Li](https://github.com/melanie531)
-
 ## License
 
 [MIT-0](LICENSE)
