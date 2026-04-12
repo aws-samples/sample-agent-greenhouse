@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Greenhouse Architecture v3 — Foundation Agent + Domain Harness</title>
+<style>
+  :root {
+    --entry: #e0f2fe;
+    --entry-border: #7dd3fc;
+    --integration: #d1fae5;
+    --integration-border: #6ee7b7;
+    --runtime: #ede9fe;
+    --runtime-border: #c4b5fd;
+    --core-from: #3b82f6;
+    --core-to: #8b5cf6;
+    --domain: #fce7f3;
+    --domain-border: #f9a8d4;
+    --capability: #ccfbf1;
+    --capability-border: #5eead4;
+    --memory: #fef9c3;
+    --memory-border: #fde047;
+    --observability: #f1f5f9;
+    --observability-border: #cbd5e1;
+    --model: #dbeafe;
+    --model-border: #93c5fd;
+    --hooks-from: #fbbf24;
+    --hooks-to: #f97316;
+    --text: #0f172a;
+    --text-secondary: #475569;
+    --text-light: #94a3b8;
+    --white: #ffffff;
+    --bg: #f8fafc;
+    --shadow: 0 2px 6px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+    --shadow-md: 0 8px 16px rgba(0,0,0,0.07), 0 4px 8px rgba(0,0,0,0.05);
+    --shadow-lg: 0 16px 32px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.04);
+    --shadow-xl: 0 24px 48px rgba(0,0,0,0.10), 0 12px 24px rgba(0,0,0,0.06);
+    --radius: 20px;
+    --radius-sm: 14px;
+    --radius-xs: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 72px 48px;
+    display: flex;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .diagram {
+    max-width: 2400px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 480px;
+    gap: 0;
+  }
+
+  /* ===== TITLE ===== */
+  .diagram-title {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 0 0 56px;
+  }
+  .diagram-title h1 {
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #1e40af, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.15;
+  }
+  .diagram-title .subtitle {
+    font-size: 24px;
+    color: var(--text-secondary);
+    margin-top: 14px;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+  }
+
+  /* ===== LAYER BASE ===== */
+  .layer {
+    border-radius: var(--radius);
+    padding: 48px 52px;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    border: 2px solid rgba(0,0,0,0.06);
+  }
+  .layer-label {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  /* ===== COMPONENT GRID ===== */
+  .components {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+  }
+  .components.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .components.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .components.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .components.cols-6 { grid-template-columns: repeat(6, 1fr); }
+
+  /* ===== COMPONENT CARD ===== */
+  .comp {
+    background: var(--white);
+    border: 1.5px solid rgba(0,0,0,0.07);
+    border-radius: var(--radius-sm);
+    padding: 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .comp:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* ===== ICON BOX ===== */
+  .icon-box {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .icon-box.blue    { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+  .icon-box.green   { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
+  .icon-box.purple  { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+  .icon-box.orange  { background: linear-gradient(135deg, #ffedd5, #fed7aa); }
+  .icon-box.pink    { background: linear-gradient(135deg, #fce7f3, #fbcfe8); }
+  .icon-box.teal    { background: linear-gradient(135deg, #ccfbf1, #99f6e4); }
+  .icon-box.yellow  { background: linear-gradient(135deg, #fef9c3, #fef08a); }
+  .icon-box.gray    { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); }
+  .icon-box.red     { background: linear-gradient(135deg, #fee2e2, #fecaca); }
+  .icon-box.indigo  { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); }
+  .icon-box.sky     { background: linear-gradient(135deg, #e0f2fe, #bae6fd); }
+  .icon-box.amber   { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+  .icon-box.lime    { background: linear-gradient(135deg, #ecfccb, #d9f99d); }
+  .icon-box.rose    { background: linear-gradient(135deg, #ffe4e6, #fecdd3); }
+  .icon-box.violet  { background: linear-gradient(135deg, #f5f3ff, #ede9fe); }
+  .icon-box.cyan    { background: linear-gradient(135deg, #cffafe, #a5f3fc); }
+  .icon-box.emerald { background: linear-gradient(135deg, #d1fae5, #6ee7b7); }
+  .icon-box.fuchsia { background: linear-gradient(135deg, #fae8ff, #f0abfc); }
+
+  .comp-text { flex: 1; min-width: 0; }
+  .comp-name {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .comp-desc {
+    font-size: 18px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+
+  /* ===== ARROW ROWS ===== */
+  .arrow-row {
+    grid-column: 1 / 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 52px;
+  }
+  .arrow-row svg { display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+
+  /* ===== LAYER COLORS ===== */
+  .layer-entry        { background: var(--entry);        grid-column: 1 / 2; border-color: var(--entry-border); }
+  .layer-integration  { background: var(--integration);  grid-column: 1 / 2; border-color: var(--integration-border); }
+  .layer-runtime      { background: var(--runtime);      grid-column: 1 / 2; border-color: var(--runtime-border); }
+  .layer-domain       { background: var(--domain);       grid-column: 1 / 2; border-color: var(--domain-border); }
+  .layer-capability   { background: var(--capability);   grid-column: 1 / 2; border-color: var(--capability-border); }
+  .layer-memory       { background: var(--memory);       grid-column: 1 / 2; border-color: var(--memory-border); }
+  .layer-observability { background: var(--observability); grid-column: 1 / 2; border-color: var(--observability-border); }
+  .layer-model        { background: var(--model);        grid-column: 1 / 2; border-color: var(--model-border); }
+
+  /* ===== CORE — HERO SECTION ===== */
+  .layer-core {
+    grid-column: 1 / 2;
+    background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 50%, #faf5ff 100%);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+    box-shadow: var(--shadow-lg);
+    padding: 48px;
+  }
+  .layer-core::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: calc(var(--radius) + 3px);
+    background: linear-gradient(135deg, var(--core-from), var(--core-to));
+    z-index: -1;
+  }
+  .core-hero {
+    background: linear-gradient(135deg, #3b82f6, #7c3aed, #a855f7);
+    border-radius: var(--radius-sm);
+    padding: 48px 52px;
+    text-align: center;
+    color: white;
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 32px;
+  }
+  .core-hero .title {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .core-hero .sub {
+    font-size: 22px;
+    opacity: 0.9;
+    margin-top: 10px;
+    font-weight: 500;
+  }
+  .core-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+  .core-card {
+    background: var(--white);
+    border-radius: var(--radius-sm);
+    padding: 32px 24px;
+    text-align: center;
+    border: 1.5px solid rgba(99, 102, 241, 0.15);
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .core-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+  }
+  .core-card .icon-box {
+    margin: 0 auto 14px;
+  }
+  .core-card .core-card-name {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .core-card .core-card-desc {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  /* ===== HOOK SIDEBAR ===== */
+  .layer-hooks {
+    grid-column: 2 / 3;
+    grid-row: 3 / 20;
+    border-radius: var(--radius);
+    padding: 40px 32px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    margin-left: 24px;
+    background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 40%, #fef3c7 100%);
+    border: 2px solid #fcd34d;
+    position: relative;
+    overflow: hidden;
+  }
+  .layer-hooks::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--hooks-from), var(--hooks-to));
+  }
+  .hooks-subtitle {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  .hook-card {
+    background: var(--white);
+    border: 1.5px solid rgba(251, 191, 36, 0.3);
+    border-radius: var(--radius-xs);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .hook-card:hover {
+    transform: translateX(-3px);
+    box-shadow: var(--shadow);
+  }
+  .hook-card:last-child { margin-bottom: 0; }
+  .hook-icon {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .hook-card .hook-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .hook-card .hook-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .hook-card .hook-desc {
+    font-size: 16px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin-top: 3px;
+  }
+  .hook-connector {
+    position: absolute;
+    left: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #fcd34d);
+  }
+
+  /* ===== MEMORY INNER ===== */
+  .memory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 20px;
+  }
+  .memory-card {
+    background: var(--white);
+    border: 1.5px solid rgba(202, 138, 4, 0.18);
+    border-radius: var(--radius-sm);
+    padding: 28px;
+  }
+  .memory-card-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 10px;
+  }
+  .memory-card-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .memory-card-desc {
+    font-size: 18px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .strategy-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .strategy-tag {
+    font-size: 16px;
+    background: linear-gradient(135deg, #fef9c3, #fde68a);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-weight: 600;
+    border: 1.5px solid #fcd34d;
+    color: #92400e;
+  }
+
+  /* ===== FOOTER ===== */
+  .diagram-footer {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 56px 0 24px;
+  }
+  .footer-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 20px;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: white;
+    padding: 22px 48px;
+    border-radius: 999px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    box-shadow: var(--shadow-lg);
+  }
+  .footer-brand .sep {
+    width: 2px;
+    height: 24px;
+    background: rgba(255,255,255,0.25);
+  }
+  .footer-sub {
+    font-size: 16px;
+    color: var(--text-light);
+    margin-top: 12px;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1600px) {
+    .diagram {
+      grid-template-columns: 1fr;
+    }
+    .layer-hooks {
+      grid-column: 1 / 2;
+      grid-row: auto;
+      margin-left: 0;
+      margin-top: 12px;
+    }
+    .arrow-row { grid-column: 1 / 2; }
+    .components.cols-5,
+    .components.cols-6 { grid-template-columns: repeat(3, 1fr); }
+    .core-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 900px) {
+    .components.cols-5,
+    .components.cols-6,
+    .components.cols-4,
+    .components.cols-3 { grid-template-columns: repeat(2, 1fr); }
+    .core-grid { grid-template-columns: 1fr; }
+    .memory-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="diagram">
+
+  <!-- ===== TITLE ===== -->
+  <div class="diagram-title">
+    <h1>Agent Greenhouse Architecture</h1>
+    <div class="subtitle">Foundation Agent + Domain Harness &mdash; Layered Runtime Overview</div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 1: Entry Layer                                      -->
+  <!-- ======================================================== -->
+  <div class="layer layer-entry">
+    <div class="layer-label">Entry Layer</div>
+    <div class="components cols-5">
+      <div class="comp">
+        <div class="icon-box blue">&#x1F4AC;</div>
+        <div class="comp-text">
+          <div class="comp-name">Slack Bot</div>
+          <div class="comp-desc">DM &amp; App Mention events</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box indigo">&#x1F5A5;&#xFE0F;</div>
+        <div class="comp-text">
+          <div class="comp-name">CLI</div>
+          <div class="comp-desc">agentcore invoke</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box teal">&#x1F310;</div>
+        <div class="comp-text">
+          <div class="comp-name">REST API</div>
+          <div class="comp-desc">HTTP endpoint</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box orange">&#x23F0;</div>
+        <div class="comp-text">
+          <div class="comp-name">EventBridge</div>
+          <div class="comp-desc">Scheduled tasks</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box purple">&#x1F517;</div>
+        <div class="comp-text">
+          <div class="comp-name">SDK</div>
+          <div class="comp-desc">boto3 invoke_agent_runtime</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag1)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 2: Integration Layer                                -->
+  <!-- ======================================================== -->
+  <div class="layer layer-integration">
+    <div class="layer-label">Integration Layer</div>
+    <div class="components cols-6">
+      <div class="comp">
+        <div class="icon-box yellow">&#x26A1;</div>
+        <div class="comp-text">
+          <div class="comp-name">Ack Lambda</div>
+          <div class="comp-desc">3s Slack response</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box green">&#x1F477;</div>
+        <div class="comp-text">
+          <div class="comp-name">Worker Lambda</div>
+          <div class="comp-desc">Async processing</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box orange">&#x1F4EC;</div>
+        <div class="comp-text">
+          <div class="comp-name">SQS FIFO</div>
+          <div class="comp-desc">Exactly-once delivery</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box red">&#x1F510;</div>
+        <div class="comp-text">
+          <div class="comp-name">Cognito JWT</div>
+          <div class="comp-desc">User authentication</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box teal">&#x1F309;</div>
+        <div class="comp-text">
+          <div class="comp-name">API Gateway</div>
+          <div class="comp-desc">HTTP endpoint</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box amber">&#x1F511;</div>
+        <div class="comp-text">
+          <div class="comp-name">SSM Parameter Store</div>
+          <div class="comp-desc">Secrets management</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#059669"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag2)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 3: AgentCore Runtime                                -->
+  <!-- ======================================================== -->
+  <div class="layer layer-runtime">
+    <div class="layer-label">AgentCore Runtime</div>
+    <div class="components cols-5">
+      <div class="comp">
+        <div class="icon-box purple">&#x1F4E6;</div>
+        <div class="comp-text">
+          <div class="comp-name">Container</div>
+          <div class="comp-desc">Docker on AgentCore</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box indigo">&#x1F680;</div>
+        <div class="comp-text">
+          <div class="comp-name">entrypoint.py</div>
+          <div class="comp-desc">Request handler</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box blue">&#x1F3CA;</div>
+        <div class="comp-text">
+          <div class="comp-name">Agent Pool</div>
+          <div class="comp-desc">Session isolation</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box green">&#x1F504;</div>
+        <div class="comp-text">
+          <div class="comp-name">Lazy Init</div>
+          <div class="comp-desc">Cold start optimization</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box red">&#x2764;&#xFE0F;</div>
+        <div class="comp-text">
+          <div class="comp-name">Health Check</div>
+          <div class="comp-desc">/ping endpoint</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag3)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 4: Foundation Agent Core (HERO)                     -->
+  <!-- ======================================================== -->
+  <div class="layer layer-core">
+    <div class="layer-label" style="color: #4338ca;">Foundation Agent Core</div>
+
+    <div class="core-hero">
+      <div class="title">&#x1F9E0; FoundationAgent</div>
+      <div class="sub">Strands Agents SDK &mdash; Composable AI Agent Framework</div>
+    </div>
+
+    <div class="core-grid">
+      <div class="core-card">
+        <div class="icon-box blue" style="margin: 0 auto 14px;">&#x1F464;</div>
+        <div class="core-card-name">SOUL</div>
+        <div class="core-card-desc">Personality &amp; workspace identity<br><code style="font-size:14px;background:rgba(0,0,0,0.05);padding:3px 8px;border-radius:4px;">SOUL.md, IDENTITY.md</code></div>
+      </div>
+      <div class="core-card">
+        <div class="icon-box green" style="margin: 0 auto 14px;">&#x1F4DD;</div>
+        <div class="core-card-name">PROMPT</div>
+        <div class="core-card-desc">System prompt assembly<br>Workspace context + LTM injection</div>
+      </div>
+      <div class="core-card">
+        <div class="icon-box amber" style="margin: 0 auto 14px;">&#x1FA9D;</div>
+        <div class="core-card-name">HOOKS</div>
+        <div class="core-card-desc">11+ lifecycle hooks<br>Pluggable event pipeline</div>
+      </div>
+      <div class="core-card">
+        <div class="icon-box purple" style="margin: 0 auto 14px;">&#x1F4BE;</div>
+        <div class="core-card-name">SESSION</div>
+        <div class="core-card-desc">Conversation persistence<br>FileSessionManager / S3</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#db2777"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag4)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 5: Domain Harness                                   -->
+  <!-- ======================================================== -->
+  <div class="layer layer-domain">
+    <div class="layer-label">Domain Harness</div>
+    <div class="components cols-5">
+      <div class="comp">
+        <div class="icon-box pink">&#x1F50C;</div>
+        <div class="comp-text">
+          <div class="comp-name">DomainHarness Interface</div>
+          <div class="comp-desc">Pluggable domain logic</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box fuchsia">&#x1F3D7;&#xFE0F;</div>
+        <div class="comp-text">
+          <div class="comp-name">Plato Harness</div>
+          <div class="comp-desc">Platform engineering impl</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box purple">&#x1F4DA;</div>
+        <div class="comp-text">
+          <div class="comp-name">28 Domain Skills</div>
+          <div class="comp-desc">Architecture, Code Review, Deploy, Testing...</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box red">&#x1F4CB;</div>
+        <div class="comp-text">
+          <div class="comp-name">Policies</div>
+          <div class="comp-desc">Tool allowlist/denylist, Cedar</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box indigo">&#x1F3AF;</div>
+        <div class="comp-text">
+          <div class="comp-name">AIDLC</div>
+          <div class="comp-desc">AI Dev Lifecycle: inception &rarr; implementation</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag5" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#db2777"/><stop offset="100%" stop-color="#0d9488"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag5)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 6: Capability Layer                                 -->
+  <!-- ======================================================== -->
+  <div class="layer layer-capability">
+    <div class="layer-label">Capability Layer</div>
+    <div class="components cols-5">
+      <div class="comp">
+        <div class="icon-box gray">&#x1F527;</div>
+        <div class="comp-text">
+          <div class="comp-name">Tools</div>
+          <div class="comp-desc">GitHub (60+ ops), Claude Code, File I/O</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box teal">&#x1F50C;</div>
+        <div class="comp-text">
+          <div class="comp-name">MCP</div>
+          <div class="comp-desc">AgentCore docs, AWS docs servers</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box blue">&#x1F310;</div>
+        <div class="comp-text">
+          <div class="comp-name">Cloud Browser</div>
+          <div class="comp-desc">Web automation (AgentCore)</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box purple">&#x1F5A5;&#xFE0F;</div>
+        <div class="comp-text">
+          <div class="comp-name">Code Interpreter</div>
+          <div class="comp-desc">Sandboxed execution (AgentCore)</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box yellow">&#x1F4BE;</div>
+        <div class="comp-text">
+          <div class="comp-name">Memory API</div>
+          <div class="comp-desc">save_memory / recall_memory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag6" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d9488"/><stop offset="100%" stop-color="#ca8a04"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag6)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 7: Memory System                                    -->
+  <!-- ======================================================== -->
+  <div class="layer layer-memory">
+    <div class="layer-label">Memory System</div>
+    <div class="memory-grid">
+      <div class="memory-card">
+        <div class="memory-card-header">
+          <div class="icon-box yellow" style="width:48px;height:48px;min-width:48px;font-size:24px;border-radius:12px;">&#x26A1;</div>
+          <div class="memory-card-name">STM &mdash; Short-Term Memory</div>
+        </div>
+        <div class="memory-card-desc">Per-session working memory. Auto-ingest from conversation context.</div>
+      </div>
+      <div class="memory-card">
+        <div class="memory-card-header">
+          <div class="icon-box amber" style="width:48px;height:48px;min-width:48px;font-size:24px;border-radius:12px;">&#x1F9E0;</div>
+          <div class="memory-card-name">LTM &mdash; Long-Term Memory</div>
+        </div>
+        <div class="memory-card-desc">Persistent across sessions. 4 retrieval strategies:</div>
+        <div class="strategy-tags">
+          <span class="strategy-tag">Semantic Knowledge</span>
+          <span class="strategy-tag">Conversation Summary</span>
+          <span class="strategy-tag">User Preferences (+0.1)</span>
+          <span class="strategy-tag">Episodic Memory</span>
+        </div>
+      </div>
+      <div class="memory-card">
+        <div class="memory-card-header">
+          <div class="icon-box red" style="width:48px;height:48px;min-width:48px;font-size:24px;border-radius:12px;">&#x2702;&#xFE0F;</div>
+          <div class="memory-card-name">Score Pruning</div>
+        </div>
+        <div class="memory-card-desc">MAX_LTM_CHARS=6000, relevance ranking with priority weighting.</div>
+      </div>
+      <div class="memory-card">
+        <div class="memory-card-header">
+          <div class="icon-box purple" style="width:48px;height:48px;min-width:48px;font-size:24px;border-radius:12px;">&#x1F512;</div>
+          <div class="memory-card-name">Namespace Isolation</div>
+        </div>
+        <div class="memory-card-desc">Multi-tenant: <code style="font-size:15px;background:rgba(0,0,0,0.05);padding:3px 8px;border-radius:4px;">/strategies/{id}/actors/{actorId}/</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag7" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ca8a04"/><stop offset="100%" stop-color="#64748b"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag7)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 8: Observability                                    -->
+  <!-- ======================================================== -->
+  <div class="layer layer-observability">
+    <div class="layer-label">Observability</div>
+    <div class="components cols-5">
+      <div class="comp">
+        <div class="icon-box gray">&#x1F4CB;</div>
+        <div class="comp-text">
+          <div class="comp-name">CloudWatch Logs</div>
+          <div class="comp-desc">Runtime + OTEL logs</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box blue">&#x1F50D;</div>
+        <div class="comp-text">
+          <div class="comp-name">X-Ray Traces</div>
+          <div class="comp-desc">ADOT auto-instrument + Strands OTEL</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box green">&#x1F4CA;</div>
+        <div class="comp-text">
+          <div class="comp-name">EMF Metrics</div>
+          <div class="comp-desc">7 custom metrics (Plato/Agent)</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box purple">&#x1F4C8;</div>
+        <div class="comp-text">
+          <div class="comp-name">GenAI Dashboard</div>
+          <div class="comp-desc">CloudWatch GenAI Observability</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box orange">&#x23F1;&#xFE0F;</div>
+        <div class="comp-text">
+          <div class="comp-name">Latency Tracking</div>
+          <div class="comp-desc">Model call P50/P99</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <svg width="56" height="38" viewBox="0 0 56 38">
+      <defs><linearGradient id="ag8" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#64748b"/><stop offset="100%" stop-color="#1d4ed8"/></linearGradient></defs>
+      <polygon points="28,36 8,8 48,8" fill="url(#ag8)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- LAYER 9: Model Layer                                      -->
+  <!-- ======================================================== -->
+  <div class="layer layer-model">
+    <div class="layer-label">Model Layer</div>
+    <div class="components cols-4">
+      <div class="comp">
+        <div class="icon-box indigo">&#x1F916;</div>
+        <div class="comp-text">
+          <div class="comp-name">Amazon Bedrock</div>
+          <div class="comp-desc">Foundation model provider</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box blue">&#x1F504;</div>
+        <div class="comp-text">
+          <div class="comp-name">Cross-Region Inference</div>
+          <div class="comp-desc">Global inference profiles</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box gray">&#x2699;&#xFE0F;</div>
+        <div class="comp-text">
+          <div class="comp-name">Configurable Models</div>
+          <div class="comp-desc">Runtime model selection via env vars</div>
+        </div>
+      </div>
+      <div class="comp">
+        <div class="icon-box purple">&#x1F4CA;</div>
+        <div class="comp-text">
+          <div class="comp-name">Multi-Model Support</div>
+          <div class="comp-desc">Swap models without code changes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- HOOK SIDEBAR                                              -->
+  <!-- ======================================================== -->
+  <div class="layer-hooks">
+    <div class="hook-connector"></div>
+    <div class="layer-label" style="color: #92400e;">Hook System</div>
+    <div class="hooks-subtitle">11 lifecycle hooks &mdash; pluggable event pipeline</div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe);">&#x1F464;</div>
+      <div class="hook-text">
+        <div class="hook-name">SoulHook</div>
+        <div class="hook-desc">Personality injection from workspace</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe);">&#x1F9E0;</div>
+      <div class="hook-text">
+        <div class="hook-name">MemoryHook</div>
+        <div class="hook-desc">Load LTM context at session start</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0);">&#x1F4CB;</div>
+      <div class="hook-text">
+        <div class="hook-name">AuditHook</div>
+        <div class="hook-desc">Log every tool call</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #fee2e2, #fecaca);">&#x1F6E1;&#xFE0F;</div>
+      <div class="hook-text">
+        <div class="hook-name">GuardrailsHook</div>
+        <div class="hook-desc">Safety filtering &amp; content policy</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #ccfbf1, #99f6e4);">&#x1F4CA;</div>
+      <div class="hook-text">
+        <div class="hook-name">TelemetryHook</div>
+        <div class="hook-desc">Invocation tracing &amp; metrics</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #e0f2fe, #bae6fd);">&#x1F4C8;</div>
+      <div class="hook-text">
+        <div class="hook-name">ModelMetricsHook</div>
+        <div class="hook-desc">EMF metrics to CloudWatch</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #fef3c7, #fde68a);">&#x1F512;</div>
+      <div class="hook-text">
+        <div class="hook-name">ToolPolicyHook</div>
+        <div class="hook-desc">Tool access control per role</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #fce7f3, #fbcfe8);">&#x1F4B0;</div>
+      <div class="hook-text">
+        <div class="hook-name">BusinessMetricsHook</div>
+        <div class="hook-desc">Domain KPIs</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #ffedd5, #fed7aa);">&#x1F50D;</div>
+      <div class="hook-text">
+        <div class="hook-name">HallucinationDetectorHook</div>
+        <div class="hook-desc">Output verification</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #f5f3ff, #ede9fe);">&#x1F4BF;</div>
+      <div class="hook-text">
+        <div class="hook-name">SessionRecordingHook</div>
+        <div class="hook-desc">Conversation logging</div>
+      </div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-icon" style="background: linear-gradient(135deg, #ecfccb, #d9f99d);">&#x1F4D0;</div>
+      <div class="hook-text">
+        <div class="hook-name">CompactionHook</div>
+        <div class="hook-desc">Context window management</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <div class="diagram-footer">
+    <div class="footer-brand">
+      Built on Amazon Bedrock AgentCore &amp; Strands Agents SDK
+      <div class="sep"></div>
+      github.com/aws-samples/sample-agent-greenhouse
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
