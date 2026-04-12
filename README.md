@@ -168,6 +168,8 @@ plato orchestrate "Review this repo and then generate deployment configs"
 
 ## Architecture
 
+![Agent Greenhouse Architecture](docs/images/architecture.png)
+
 ### Foundation Agent
 
 The core runtime that all domain agents share. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for a quick overview, or [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design document.
