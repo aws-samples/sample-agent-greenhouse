@@ -183,7 +183,7 @@ The core runtime that all domain agents share. See [`ARCHITECTURE.md`](ARCHITECT
 | `DomainHarness` | `foundation/harness.py` | Pure-data config schema (frozen dataclass → YAML) |
 | `SoulSystem` | `foundation/soul.py` | Agent persona/personality injection |
 | Memory | `foundation/memory.py`, `memory.py` | Three-layer memory (session replay + STM→LTM pipeline + workspace) |
-| Hook System | `foundation/hooks/` | 16 lifecycle hooks loaded from harness config |
+| Hook System | `foundation/hooks/` | 16 lifecycle hooks (13 active, 3 deprecated) |
 | Guardrails | `foundation/guardrails/` | Cedar-based tool-level policy engine |
 | Tools | `foundation/tools/` | GitHub, Claude Code, memory, workspace tools |
 | Deploy | `foundation/deploy/` | AgentCore + Dockerfile generation |
