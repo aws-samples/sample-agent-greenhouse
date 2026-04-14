@@ -1,6 +1,6 @@
 # Plato Agent — Architecture Design Document
 
-> **Version**: 1.0.0 · **Last updated**: 2026-04-08
+> **Version**: 1.0.0 · **Last updated**: 2026-04-14
 > **Codebase**: `platform-as-agent` · **Branch**: `main`
 
 ---
@@ -13,8 +13,8 @@
 
 | Metric | Count |
 |--------|-------|
-| Hook middleware | 15 (4 always-on, 7 domain, 2 optional, 1 deprecated, 1 non-Strands) |
-| Skill packs | 16 |
+| Hook middleware | 10 active, 5 optional/deprecated |
+| Skill packs | 22 total: 16 domain + 6 knowledge-only |
 | Domain tools | 33+ (7 AIDLC + 13 GitHub + 2 memory + 3 workspace + Claude Code + domain-specific) |
 | Test files | 77 |
 | Test functions | 1,734+ |
@@ -72,8 +72,8 @@
 │  │  FoundationAgent (Strands SDK wrapper)                        │  │
 │  │                                                               │  │
 │  │  ┌───────────┐  ┌──────────────┐  ┌───────────────────────┐  │  │
-│  │  │ SoulSystem │  │ 15 Hooks     │  │ SkillRegistry         │  │  │
-│  │  │ (5 .md)    │  │ (middleware)  │  │ (16 skill packs)      │  │  │
+│  │  │ SoulSystem │  │ 10 Hooks     │  │ AgentSkills plugin    │  │  │
+│  │  │ (5 .md)    │  │ (middleware)  │  │ (22 skills)           │  │  │
 │  │  └───────────┘  └──────────────┘  └───────────────────────┘  │  │
 │  │                                                               │  │
 │  │  ┌────────────────────────────────────────────────────────┐   │  │
@@ -83,7 +83,7 @@
 │  └──────────────────────────┬────────────────────────────────────┘  │
 │                             ▼                                       │
 │                   Amazon Bedrock (Claude)                            │
-│                   global.anthropic.claude-opus-4-6-v1                │
+│                   global.anthropic.claude-sonnet-4-6                 │
 └─────────────────────────────────────────────────────────────────────┘
 
 Memory Architecture:
@@ -122,7 +122,7 @@ src/platform_agent/
 │   ├── harness.py                 # DomainHarness + config dataclasses
 │   ├── memory.py                  # SessionMemory + WorkspaceMemory
 │   ├── soul.py                    # SoulSystem — personality file loader
-│   ├── hooks/                     # 15 lifecycle hook implementations
+│   ├── hooks/                     # 10 active lifecycle hook implementations
 │   │   ├── base.py                # HookBase (extends Strands HookProvider)
 │   │   ├── soul_hook.py           # Soul file loading
 │   │   ├── memory_hook.py         # Session + workspace memory recording
@@ -181,10 +181,12 @@ src/platform_agent/
 │   │   ├── design.py              # DesignEvaluator (C1-C12 checklist)
 │   │   ├── deployment.py          # DeploymentEvaluator
 │   │   └── scaffold.py            # ScaffoldEvaluator
-│   └── skills/                    # 16 skill packs
+│   └── skills/                    # 22 skills (16 domain + 6 knowledge-only)
 │       ├── base.py                # SkillPack abstract base class
 │       ├── aidlc_inception/       # Guided AIDLC inception workflow
+│       ├── architecture-knowledge/  # Knowledge-only: architecture patterns
 │       ├── code_review/           # Security and quality code review
+│       ├── cost-optimization/     # Knowledge-only: cost optimization
 │       ├── debug/                 # Troubleshooting
 │       ├── deployment_config/     # Deployment configuration generation
 │       ├── design_advisor/        # Platform readiness (C1-C12)
@@ -192,13 +194,17 @@ src/platform_agent/
 │       ├── governance/            # Compliance checks
 │       ├── issue_creator/         # GitHub issue creation
 │       ├── knowledge/             # Reference lookup
+│       ├── migration-guide/       # Knowledge-only: migration guidance
 │       ├── monitoring/            # Monitoring setup
 │       ├── observability/         # Instrumentation guidance
 │       ├── onboarding/            # Developer onboarding
+│       ├── policy-compiler/       # Knowledge-only: policy compilation
 │       ├── pr_review/             # PR review with spec tracing
 │       ├── scaffold/              # Project skeleton generation
+│       ├── security-review/       # Knowledge-only: security review
 │       ├── spec_compliance/       # Spec compliance verification
-│       └── test_case_generator/   # 1:1 AC-to-TC mapping
+│       ├── test_case_generator/   # 1:1 AC-to-TC mapping
+│       └── testing-strategy/      # Knowledge-only: testing strategy
 │
 ├── slack/                         # Slack integration
 │   ├── handler.py                 # SlackEventHandler + SlackConfig
@@ -244,7 +250,7 @@ class FoundationAgent:
     def __init__(
         self,
         workspace_dir: str | None = None,
-        model_id: str = "global.anthropic.claude-opus-4-6-v1",
+        model_id: str = "global.anthropic.claude-sonnet-4-6",
         extra_tools: list[Callable] | None = None,
         enable_claude_code: bool = False,
         tool_allowlist: list[str] | None = None,
@@ -267,7 +273,7 @@ class FoundationAgent:
 
 1. Load `SoulSystem` (IDENTITY.md, SOUL.md, AGENTS.md, USER.md, MEMORY.md)
 2. Initialize `SessionMemory` + `WorkspaceMemory`
-3. Discover workspace skills via `SkillRegistry`
+3. Initialize AgentSkills plugin via `harness.skill_directories` or fallback `workspace/skills/`
 4. Assemble hook registry (always-on + harness-driven)
 5. Build tool list (workspace + GitHub + AIDLC + memory + Claude Code + extras)
 6. Compute `_prompt_hash` (SHA256 of static system prompt for cache awareness)
@@ -342,6 +348,7 @@ class DomainHarness:
     eval_criteria: list[EvalRule]            # Quality gate rules
     hooks: list[HookConfig]                  # Hooks to activate
     persona: PersonaConfig | None = None     # Optional persona config
+    skill_directories: list[str] = field(default_factory=list)  # AgentSkills plugin dirs
 
     def to_dict(self) -> dict                # Serialize to dict
     def from_dict(cls, data) -> DomainHarness  # Deserialize
@@ -361,6 +368,8 @@ class DomainHarness:
 | `SkillRef` | `name`, `description`, `tools` |
 
 ### 4.5 `SkillRegistry` — `src/platform_agent/foundation/skills/registry.py`
+
+> **DEPRECATED**: `AgentSkills` plugin is the production path for skill loading. `SkillRegistry` is kept as fallback only. `discover()` is no longer called eagerly on init.
 
 Workspace-level skill discovery with lazy loading.
 
@@ -442,7 +451,7 @@ AfterInvocationEvent      ← Guardrails, Telemetry, MemoryExtraction,
                             SessionRecording, BusinessMetrics, OTELSpan
 ```
 
-### 5.3 All Hooks
+### 5.3 All Hooks (10 active)
 
 | # | Hook | Category | Events | Purpose |
 |---|------|----------|--------|---------|
@@ -455,12 +464,12 @@ AfterInvocationEvent      ← Guardrails, Telemetry, MemoryExtraction,
 | 7 | **ToolPolicyHook** | domain | BeforeTool | Enforces tool allowlist/denylist; sets `event.cancel_tool` to block |
 | 8 | **BusinessMetricsHook** | domain | Full lifecycle | Skill usage, DAU, session depth, artifact counts |
 | 9 | **HallucinationDetectorHook** | domain | AfterTool | Captures tool outputs for offline consistency analysis |
-| 10 | **OTELSpanHook** | domain | Full lifecycle | OpenTelemetry spans (`plato.invoke`, `plato.tool.*`, `plato.model.invoke`) |
-| 11 | **SessionRecordingHook** | domain | Full lifecycle | Full session capture for S3 (`sessions/{tenant}/{date}/{session}.json`) |
-| 12 | **MemoryExtractionHook** | optional | AfterInvocation | Extracts structured memories; persists to `memory/extracted/` |
-| 13 | **ConsolidationHook** | optional | BeforeInvocation | 3-gate consolidation (time + count + lock) → `memory/consolidated/` |
-| 14 | **CompactionHook** | deprecated | BeforeInvocation | Log-only in v1; 9-section compaction prompt retained for reference |
-| 15 | **AIDLCTelemetryHook** | domain (non-Strands) | Workflow events | AIDLC stage transition metrics; registered via `workflow.on_event()` |
+| 10 | **SessionRecordingHook** | domain | Full lifecycle | Full session capture for S3 (`sessions/{tenant}/{date}/{session}.json`) |
+| — | **OTELSpanHook** | not in default registry | Full lifecycle | OpenTelemetry spans (`plato.invoke`, `plato.tool.*`, `plato.model.invoke`) |
+| — | **MemoryExtractionHook** | optional | AfterInvocation | Extracts structured memories; persists to `memory/extracted/` |
+| — | **ConsolidationHook** | optional | BeforeInvocation | 3-gate consolidation (time + count + lock) → `memory/consolidated/` |
+| — | **CompactionHook** | REMOVED from active hooks | BeforeInvocation | Log-only in v1; 9-section compaction prompt retained for reference |
+| — | **AIDLCTelemetryHook** | domain (non-Strands) | Workflow events | AIDLC stage transition metrics; registered via `workflow.on_event()` |
 
 ### 5.4 Loading Paths
 
@@ -516,6 +525,8 @@ def run_orchestrator_sync(prompt: str, ...) -> str
 
 ### 6.2 Skill Packs — `src/platform_agent/plato/skills/`
 
+> All skill names now use kebab-case per the AgentSkills spec. `system_prompt_extension` is now empty string — `SKILL.md` is the sole prompt source.
+
 | # | Skill Pack | Description | Key Tools |
 |---|-----------|-------------|-----------|
 | 1 | `aidlc_inception` | Guided AIDLC inception workflow | 7 aidlc_* tools |
@@ -534,6 +545,12 @@ def run_orchestrator_sync(prompt: str, ...) -> str
 | 14 | `scaffold` | Project skeleton generator | Read, Write, Edit, Bash, Glob |
 | 15 | `spec_compliance` | Spec compliance verification | check_spec_compliance, check_single_ac |
 | 16 | `test_case_generator` | Spec-to-test-case (1:1 AC-to-TC) | generate_test_cases_from_spec |
+| 17 | `architecture-knowledge` | Architecture patterns reference | Knowledge-only (no tools) |
+| 18 | `cost-optimization` | Cost optimization guidance | Knowledge-only (no tools) |
+| 19 | `migration-guide` | Migration guidance reference | Knowledge-only (no tools) |
+| 20 | `policy-compiler` | Policy compilation reference | Knowledge-only (no tools) |
+| 21 | `security-review` | Security review guidance | Knowledge-only (no tools) |
+| 22 | `testing-strategy` | Testing strategy reference | Knowledge-only (no tools) |
 
 **Base class** (`base.py`):
 ```python
@@ -541,7 +558,7 @@ class SkillPack:
     name: str
     description: str
     version: str
-    system_prompt_extension: str    # Injected into specialist system prompt
+    system_prompt_extension: str = ""  # Empty — SKILL.md is sole prompt source
     tools: list                     # @tool-decorated functions
     mcp_servers: dict
 ```
