@@ -16,9 +16,9 @@
 | Hook middleware | 10 active, 5 optional/deprecated |
 | Skill packs | 22 total: 16 domain + 6 knowledge-only |
 | Domain tools | 33+ (7 AIDLC + 13 GitHub + 2 memory + 3 workspace + Claude Code + domain-specific) |
-| Test files | 77 |
-| Test functions | 1,734+ |
-| Source files | 156 Python modules |
+| Test files | 87 |
+| Test functions | 1,868+ |
+| Source files | 108 Python modules |
 | Evaluation rubrics | 3 (spec quality, code review coverage, readiness checklist) |
 
 ### Design Principles
@@ -83,7 +83,7 @@
 │  └──────────────────────────┬────────────────────────────────────┘  │
 │                             ▼                                       │
 │                   Amazon Bedrock (Claude)                            │
-│                   global.anthropic.claude-sonnet-4-6                 │
+│                   global.anthropic.claude-opus-4-6-v1                 │
 └─────────────────────────────────────────────────────────────────────┘
 
 Memory Architecture:
@@ -115,7 +115,7 @@ src/platform_agent/
 ├── cli.py                         # CLI entry point
 ├── health.py                      # Health check endpoint
 ├── memory.py                      # Top-level memory store (AgentCore Memory API)
-├── orchestrator.py                # Deprecated shim → plato.orchestrator
+├── orchestrator.py                # Deprecated shim → plato.orchestrator (no active imports, safe to delete)
 │
 ├── foundation/                    # ── FOUNDATION LAYER (reusable) ──
 │   ├── agent.py                   # FoundationAgent — Strands SDK wrapper
@@ -155,7 +155,7 @@ src/platform_agent/
 │   ├── deploy/
 │   │   ├── agentcore.py           # AgentCore deployment config generator
 │   │   └── dockerfile.py          # Dockerfile generator
-│   └── guardrails/                # Cedar-based policy engine (placeholder)
+│   └── guardrails/                # Cedar-based policy engine (293 lines)
 │
 ├── plato/                         # ── PLATO DOMAIN LAYER ──
 │   ├── harness.py                 # create_plato_harness() factory
@@ -242,7 +242,7 @@ class FoundationAgent:
     def __init__(
         self,
         workspace_dir: str | None = None,
-        model_id: str = "global.anthropic.claude-sonnet-4-6",
+        model_id: str = "global.anthropic.claude-opus-4-6-v1",
         extra_tools: list[Callable] | None = None,
         enable_claude_code: bool = False,
         tool_allowlist: list[str] | None = None,
