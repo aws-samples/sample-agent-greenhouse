@@ -110,7 +110,7 @@ WebSocket Streaming Path:
 ```
 src/platform_agent/
 ├── __init__.py
-├── _legacy_foundation.py          # Deprecated — do not use
+├── _legacy_foundation.py          # DEPRECATED — imported by foundation/__init__.py for backward compat
 ├── bedrock_runtime.py             # Bedrock Converse API fallback (boto3 direct)
 ├── cli.py                         # CLI entry point
 ├── health.py                      # Health check endpoint
@@ -210,7 +210,7 @@ src/platform_agent/
 │   ├── handler.py                 # SlackEventHandler + SlackConfig
 │   └── lambda_function.py         # Two-Lambda pattern (ack + worker)
 │
-└── _legacy_foundation.py          # DEPRECATED — CLI + test dependencies only
+└── _legacy_foundation.py          # DEPRECATED — imported by foundation/__init__.py (backward compat alias), CLI + 7 test files depend on it
 ```
 
 ### Canonical Import Paths
