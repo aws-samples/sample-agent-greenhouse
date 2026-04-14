@@ -28,7 +28,7 @@ class SkillPack(ABC):
 
     Example:
         class DesignAdvisorSkill(SkillPack):
-            name = "design_advisor"
+            name = "design-advisor"
             description = "Architecture and design guidance"
             system_prompt_extension = "You specialize in agent architectures..."
             tools = ["Read", "Glob", "Grep"]
@@ -46,7 +46,7 @@ class SkillPack(ABC):
 
         This supports the common pattern where a non-@dataclass subclass
         overrides field values as plain class attributes (e.g.
-        ``name = "design_advisor"``). Without this, the parent dataclass
+        ``name = "design-advisor"``). Without this, the parent dataclass
         ``__init__`` would always use its own defaults.
         """
         for f_name in self.__dataclass_fields__:

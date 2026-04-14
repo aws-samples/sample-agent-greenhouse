@@ -146,9 +146,9 @@ class TestSkillRegistration:
         assert issubclass(AIDLCInceptionSkill, SkillPack)
 
     def test_skill_name(self) -> None:
-        """Skill name is 'aidlc_inception'."""
+        """Skill name is 'aidlc-inception'."""
         skill = AIDLCInceptionSkill()
-        assert skill.name == "aidlc_inception"
+        assert skill.name == "aidlc-inception"
 
     def test_skill_description(self) -> None:
         """Skill has a non-empty description."""
@@ -157,10 +157,10 @@ class TestSkillRegistration:
         assert "AIDLC" in skill.description
 
     def test_skill_has_system_prompt(self) -> None:
-        """Skill has a system prompt extension."""
+        """Skill has system_prompt_extension cleared (SKILL.md is sole source)."""
         skill = AIDLCInceptionSkill()
-        assert len(skill.system_prompt_extension) > 0
-        assert "Inception" in skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        assert skill.system_prompt_extension == ""
 
     def test_skill_tools_list(self) -> None:
         """Skill references all AIDLC tool names."""
@@ -180,12 +180,12 @@ class TestSkillRegistration:
     def test_load_skill(self) -> None:
         """load_skill creates a configured instance."""
         skill = load_skill(AIDLCInceptionSkill)
-        assert skill.name == "aidlc_inception"
+        assert skill.name == "aidlc-inception"
 
     def test_skill_registered_in_registry(self) -> None:
         """Skill is available via the registry."""
         from platform_agent.plato.skills import get_skill
-        cls = get_skill("aidlc_inception")
+        cls = get_skill("aidlc-inception")
         assert cls is AIDLCInceptionSkill
 
     def test_tools_list_has_all_tools(self) -> None:

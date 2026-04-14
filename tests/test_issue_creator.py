@@ -94,15 +94,15 @@ class TestSkillRegistration:
         assert issubclass(IssueCreatorSkill, SkillPack)
 
     def test_skill_name(self) -> None:
-        """Skill name is 'issue_creator'."""
+        """Skill name is 'issue-creator'."""
         skill = IssueCreatorSkill()
-        assert skill.name == "issue_creator"
+        assert skill.name == "issue-creator"
 
     def test_skill_has_system_prompt(self) -> None:
-        """Skill has a non-empty system prompt."""
+        """Skill has system_prompt_extension cleared (SKILL.md is sole source)."""
         skill = IssueCreatorSkill()
-        assert len(skill.system_prompt_extension) > 0
-        assert "Issue" in skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        assert skill.system_prompt_extension == ""
 
     def test_skill_tools_list(self) -> None:
         """Skill references both issue creator tools."""
@@ -113,12 +113,12 @@ class TestSkillRegistration:
     def test_load_skill(self) -> None:
         """load_skill creates a configured instance."""
         skill = load_skill(IssueCreatorSkill)
-        assert skill.name == "issue_creator"
+        assert skill.name == "issue-creator"
 
     def test_skill_registered_in_registry(self) -> None:
         """Skill is available via the registry."""
         from platform_agent.plato.skills import get_skill
-        cls = get_skill("issue_creator")
+        cls = get_skill("issue-creator")
         assert cls is IssueCreatorSkill
 
     def test_tools_list_has_all_tools(self) -> None:

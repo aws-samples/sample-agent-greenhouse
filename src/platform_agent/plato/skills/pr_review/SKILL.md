@@ -1,5 +1,5 @@
 ---
-name: pr_review
+name: pr-review
 description: "Review GitHub PRs for code quality and spec compliance"
 version: "1.0.0"
 ---

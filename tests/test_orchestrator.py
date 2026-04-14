@@ -21,7 +21,7 @@ from claude_agent_sdk import AgentDefinition
 
 
 class _DesignSkill(SkillPack):
-    name = "design_advisor"
+    name = "design-advisor"
     description = "Architecture and design guidance"
     system_prompt_extension = "You are a design expert."
     tools = ["Read", "Glob", "Grep"]
@@ -31,7 +31,7 @@ class _DesignSkill(SkillPack):
 
 
 class _DeploySkill(SkillPack):
-    name = "deployment_config"
+    name = "deployment-config"
     description = "Deployment configuration generation"
     system_prompt_extension = "You handle deployment configs."
     tools = ["Read", "Write", "Edit"]
@@ -73,26 +73,28 @@ def test_agent_def_tools_are_copied() -> None:
 
 
 def test_build_agents_from_specific_skills() -> None:
-    register_skill("design_advisor", _DesignSkill)
-    register_skill("deployment_config", _DeploySkill)
-    agents = build_agents_from_skills(skill_names=["design_advisor", "deployment_config"])
-    assert "design_advisor" in agents
-    assert "deployment_config" in agents
+    register_skill("design-advisor", _DesignSkill)
+    register_skill("deployment-config", _DeploySkill)
+    agents = build_agents_from_skills(skill_names=["design-advisor", "deployment-config"])
+    assert "design-advisor" in agents
+    assert "deployment-config" in agents
     assert len(agents) == 2
 
 
 def test_build_agents_uses_all_registered() -> None:
-    register_skill("design_advisor", _DesignSkill)
-    register_skill("deployment_config", _DeploySkill)
+    register_skill("design-advisor", _DesignSkill)
+    register_skill("deployment-config", _DeploySkill)
     agents = build_agents_from_skills()
-    assert "design_advisor" in agents
-    assert "deployment_config" in agents
+    assert "design-advisor" in agents
+    assert "deployment-config" in agents
 
 
-def test_build_agents_preserves_skill_fields() -> None:
-    register_skill("design_advisor", _DesignSkill)
-    agents = build_agents_from_skills(skill_names=["design_advisor"])
-    agent_def = agents["design_advisor"]
+def test_build_agents_preserves_skill_fields(monkeypatch) -> None:
+    # Prevent discover_skills from overwriting our mock
+    monkeypatch.setattr("platform_agent.plato.orchestrator.discover_skills", lambda: None)
+    register_skill("design-advisor", _DesignSkill)
+    agents = build_agents_from_skills(skill_names=["design-advisor"])
+    agent_def = agents["design-advisor"]
     assert agent_def.description == "Architecture and design guidance"
     assert agent_def.prompt == "You are a design expert."
     assert agent_def.tools == ["Read", "Glob", "Grep"]
@@ -106,10 +108,10 @@ def test_build_agents_from_discovered_skills() -> None:
         del sys.modules[k]
     discover_skills()
     agents = build_agents_from_skills()
-    assert "design_advisor" in agents
+    assert "design-advisor" in agents
     assert "scaffold" in agents
-    assert "code_review" in agents
-    assert "deployment_config" in agents
+    assert "code-review" in agents
+    assert "deployment-config" in agents
 
 
 # -- build_orchestrator_prompt tests --------------------------------------------
@@ -117,16 +119,16 @@ def test_build_agents_from_discovered_skills() -> None:
 
 def test_prompt_includes_agent_names_and_descriptions() -> None:
     agents = {
-        "design_advisor": AgentDefinition(
+        "design-advisor": AgentDefinition(
             description="Architecture review", prompt="...", tools=[]
         ),
-        "code_review": AgentDefinition(
+        "code-review": AgentDefinition(
             description="Code quality checks", prompt="...", tools=[]
         ),
     }
     prompt = build_orchestrator_prompt(agents)
-    assert "design_advisor" in prompt
-    assert "code_review" in prompt
+    assert "design-advisor" in prompt
+    assert "code-review" in prompt
     assert "Architecture review" in prompt
     assert "Code quality checks" in prompt
 

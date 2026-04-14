@@ -80,15 +80,23 @@ class GuardrailsHook(HookBase):
     def on_before_invocation(self, event) -> None:
         """Validate input before invocation.
 
+        If the input is blocked, clear the messages to prevent the model call
+        from proceeding with violating content.
+
         Args:
             event: BeforeInvocationEvent with messages field.
         """
         messages = getattr(event, "messages", [])
         if messages and not self.validate_input(messages):
-            logger.warning("Input blocked by guardrails")
+            logger.warning("Input blocked by guardrails — clearing messages")
+            # Actually block: clear messages so the model call has nothing to process
+            if hasattr(event, "messages") and isinstance(event.messages, list):
+                event.messages.clear()
 
     def on_after_invocation(self, event) -> None:
         """Validate output after invocation.
+
+        If the output is blocked, replace the result text with a safe message.
 
         Args:
             event: AfterInvocationEvent with result field.
@@ -99,4 +107,7 @@ class GuardrailsHook(HookBase):
         # Try to extract text from AgentResult
         text = str(result) if result else ""
         if text and not self.validate_output(text):
-            logger.warning("Output blocked by guardrails")
+            logger.warning("Output blocked by guardrails — sanitizing result")
+            # Replace blocked output with safe message
+            if hasattr(event, "result"):
+                event.result = "I'm unable to respond to that request due to content policy."

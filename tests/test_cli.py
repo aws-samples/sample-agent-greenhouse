@@ -72,10 +72,10 @@ class TestListSkills:
     def test_list_skills_shows_all_four(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["list-skills"])
         assert result.exit_code == 0
-        assert "design_advisor" in result.output
-        assert "code_review" in result.output
+        assert "design-advisor" in result.output
+        assert "code-review" in result.output
         assert "scaffold" in result.output
-        assert "deployment_config" in result.output
+        assert "deployment-config" in result.output
 
     def test_list_skills_shows_versions(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["list-skills"])
@@ -134,7 +134,7 @@ class TestRunAgentWithSkill:
         """Verify the helper can find all registered skills."""
         discover_skills()
         names = list_skills()
-        assert "design_advisor" in names
+        assert "design-advisor" in names
         assert "scaffold" in names
-        assert "deployment_config" in names
-        assert "code_review" in names
+        assert "deployment-config" in names
+        assert "code-review" in names

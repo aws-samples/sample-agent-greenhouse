@@ -480,11 +480,11 @@ class TestOrchestratorRoutesCorrectly:
         # Verify all 5 AIDLC skills are discovered
         skills = list_skills()
         expected_aidlc = [
-            "aidlc_inception",
-            "spec_compliance",
-            "pr_review",
-            "issue_creator",
-            "test_case_generator",
+            "aidlc-inception",
+            "spec-compliance",
+            "pr-review",
+            "issue-creator",
+            "test-case-generator",
         ]
         for name in expected_aidlc:
             assert name in skills, f"Skill '{name}' not discovered"
@@ -581,10 +581,10 @@ class TestRegressionExistingSkills:
         discover_skills()
 
         existing_skills = [
-            "design_advisor",
-            "code_review",
+            "design-advisor",
+            "code-review",
             "scaffold",
-            "deployment_config",
+            "deployment-config",
         ]
 
         for skill_name in existing_skills:

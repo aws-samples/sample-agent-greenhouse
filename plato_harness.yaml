@@ -1,9 +1,9 @@
 name: plato
-description: "Platform agent for Amazon Bedrock AgentCore \u2014 helps developers\
-  \ build, review, and deploy agent applications"
+description: Platform agent for Amazon Bedrock AgentCore — helps developers build,
+  review, and deploy agent applications
 version: 1.0.0
 skills:
-- name: aidlc_inception
+- name: aidlc-inception
   description: Guided AIDLC inception workflow
   tools:
   - aidlc_start_inception
@@ -13,7 +13,7 @@ skills:
   - aidlc_reject_stage
   - aidlc_get_status
   - aidlc_generate_artifacts
-- name: code_review
+- name: code-review
   description: Security and quality code reviewer
   tools:
   - Read
@@ -26,7 +26,7 @@ skills:
   - Glob
   - Grep
   - Bash
-- name: deployment_config
+- name: deployment-config
   description: Deployment configuration generator
   tools:
   - Read
@@ -35,13 +35,13 @@ skills:
   - Bash
   - Glob
   - Grep
-- name: design_advisor
+- name: design-advisor
   description: Architecture and platform readiness assessor
   tools:
   - Read
   - Glob
   - Grep
-- name: fleet_ops
+- name: fleet-ops
   description: Fleet operations management
   tools:
   - Read
@@ -54,7 +54,7 @@ skills:
   - Read
   - Glob
   - Grep
-- name: issue_creator
+- name: issue-creator
   description: Structured GitHub issue creator
   tools:
   - create_spec_violation_issue
@@ -86,7 +86,7 @@ skills:
   - Write
   - Glob
   - Grep
-- name: pr_review
+- name: pr-review
   description: PR review with spec tracing
   tools:
   - review_pull_request
@@ -98,19 +98,31 @@ skills:
   - Edit
   - Bash
   - Glob
-- name: spec_compliance
+- name: spec-compliance
   description: Spec compliance checker
   tools:
   - check_spec_compliance
   - check_single_ac
-- name: test_case_generator
+- name: test-case-generator
   description: Spec-to-test-case generator (1:1 AC-to-TC)
   tools:
   - generate_test_cases_from_spec
+skill_directories:
+- src/platform_agent/plato/skills
 tools:
 - github_tool
 - claude_code_tool
-mcp_servers: {}
+mcp_servers:
+  bedrock-agentcore:
+    command: awslabs.amazon-bedrock-agentcore-mcp-server
+    args: []
+    env:
+      FASTMCP_LOG_LEVEL: WARNING
+  aws-documentation:
+    command: awslabs.aws-documentation-mcp-server
+    args: []
+    env:
+      FASTMCP_LOG_LEVEL: WARNING
 policies:
   tool_allowlist: []
   tool_denylist: []
@@ -123,7 +135,7 @@ memory_config:
   - compliance_report
   - review_findings
   - design_assessment
-  - deployment_config
+  - deployment-config
   ttl_days: 90
   extraction_enabled: false
   consolidation_enabled: false
@@ -175,9 +187,6 @@ hooks:
 - hook: HallucinationDetectorHook
   category: domain
   params: {}
-- hook: OTELSpanHook
-  category: domain
-  params: {}
 - hook: SessionRecordingHook
   category: domain
   params: {}
@@ -192,8 +201,8 @@ hooks:
 persona:
   tone: technical
   communication_style: concise but thorough
-  role: "platform agent \u2014 architect, advisor, governance enforcer"
+  role: platform agent — architect, advisor, governance enforcer
   constraints:
-  - "NOT a coding agent \u2014 does not write application code"
-  - "Reviews, assesses, scaffolds, and configures \u2014 does not run user agents"
+  - NOT a coding agent — does not write application code
+  - Reviews, assesses, scaffolds, and configures — does not run user agents
 workspace_context_enabled: true

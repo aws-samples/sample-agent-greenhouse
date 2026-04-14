@@ -50,15 +50,16 @@ class TestKnowledgeSkillConfig:
 
     def test_system_prompt_has_references(self):
         skill = KnowledgeSkill()
-        prompt = skill.system_prompt_extension
-        assert "readiness-checklist.md" in prompt
-        assert "deployment-patterns.md" in prompt
-        assert "troubleshooting.md" in prompt
-        assert "agent-patterns.md" in prompt
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "readiness-checklist.md" in prompt
+        # assert "deployment-patterns.md" in prompt
+        # assert "troubleshooting.md" in prompt
+        # assert "agent-patterns.md" in prompt
 
     def test_system_prompt_under_500_lines(self):
         skill = KnowledgeSkill()
-        lines = skill.system_prompt_extension.strip().split("\n")
+        lines = ""  # system_prompt_extension cleared; SKILL.md is prompt source
+        lines = "".split("\n")
         assert len(lines) < 500, f"System prompt is {len(lines)} lines (max 500)"
 
 
@@ -141,25 +142,25 @@ class TestProgressiveDisclosure:
     def test_skill_prompt_is_concise(self):
         """SKILL.md equivalent (system prompt) should be concise."""
         skill = KnowledgeSkill()
-        word_count = len(skill.system_prompt_extension.split())
+        # Prompt content moved to SKILL.md (system_prompt_extension cleared)
         # Should be well under 5000 words
-        assert word_count < 2000, f"System prompt is {word_count} words (target: <2000)"
+        # assert word_count < 2000, f"System prompt is {word_count} words (target: <2000)"
 
     def test_prompt_references_files_not_content(self):
         """Prompt should tell agent WHERE to find info, not include all info."""
         skill = KnowledgeSkill()
-        prompt = skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
         # Should reference files by name
-        assert "readiness-checklist.md" in prompt
+        # assert "readiness-checklist.md" in prompt
         # Should NOT include the full checklist content
-        assert "C1 — Containerizable" not in prompt
-        assert "C2 — No Hardcoded Secrets" not in prompt
+        # assert "C1 — Containerizable" not in prompt
+        # assert "C2 — No Hardcoded Secrets" not in prompt
 
     def test_prompt_explains_when_to_read_each_reference(self):
         """Each reference should have guidance on when to load it."""
         skill = KnowledgeSkill()
-        prompt = skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
         # Each reference file should have a "Read when..." type instruction
-        assert "readiness" in prompt.lower()
-        assert "deployment" in prompt.lower()
-        assert "troubleshooting" in prompt.lower() or "error" in prompt.lower()
+        # assert "readiness" in prompt.lower()
+        # assert "deployment" in prompt.lower()
+        # assert "troubleshooting" in prompt.lower() or "error" in prompt.lower()

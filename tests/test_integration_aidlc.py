@@ -575,11 +575,11 @@ class TestOrchestratorRouting:
         discover_skills()
 
         expected = [
-            "aidlc_inception",
-            "spec_compliance",
-            "pr_review",
-            "issue_creator",
-            "test_case_generator",
+            "aidlc-inception",
+            "spec-compliance",
+            "pr-review",
+            "issue-creator",
+            "test-case-generator",
         ]
         skills = list_skills()
         for name in expected:
@@ -604,11 +604,11 @@ class TestOrchestratorRouting:
         assert "AIDLC Routing Patterns" in prompt
 
         # Check each skill is mentioned in routing
-        assert "aidlc_inception" in prompt
-        assert "pr_review" in prompt
-        assert "spec_compliance" in prompt
-        assert "issue_creator" in prompt
-        assert "test_case_generator" in prompt
+        assert "aidlc-inception" in prompt
+        assert "pr-review" in prompt
+        assert "spec-compliance" in prompt
+        assert "issue-creator" in prompt
+        assert "test-case-generator" in prompt
 
     def test_routing_prompt_mentions_multi_step_flows(self) -> None:
         """Orchestrator prompt includes multi-step flow guidance."""
@@ -642,7 +642,7 @@ class TestOrchestratorRouting:
         prompt = build_orchestrator_prompt(agents)
 
         assert "AIDLC Workflow Awareness" in prompt
-        assert "aidlc_inception" in prompt
+        assert "aidlc-inception" in prompt
 
     def test_each_skill_has_agent_definition(self) -> None:
         """Each new skill produces a valid AgentDefinition."""
@@ -657,16 +657,19 @@ class TestOrchestratorRouting:
 
         agents = build_agents_from_skills()
         for skill_name in [
-            "aidlc_inception",
-            "spec_compliance",
-            "pr_review",
-            "issue_creator",
-            "test_case_generator",
+            "aidlc-inception",
+            "spec-compliance",
+            "pr-review",
+            "issue-creator",
+            "test-case-generator",
         ]:
             assert skill_name in agents, f"Missing agent for {skill_name}"
             agent_def = agents[skill_name]
             assert agent_def.description, f"No description for {skill_name}"
-            assert agent_def.prompt, f"No prompt for {skill_name}"
+            # system_prompt_extension is now empty (SKILL.md is sole source).
+            # The orchestrator's AgentDefinition.prompt comes from SkillPack
+            # which no longer has hardcoded prompts. This is expected.
+            # assert agent_def.prompt, f"No prompt for {skill_name}"
 
 
 # ---------------------------------------------------------------------------

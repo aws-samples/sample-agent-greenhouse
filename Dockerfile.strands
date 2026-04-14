@@ -34,8 +34,8 @@ COPY workspace/SOUL.md /app/workspace/SOUL.md
 COPY workspace/IDENTITY.md /app/workspace/IDENTITY.md
 COPY workspace/AGENTS.md /app/workspace/AGENTS.md
 
-# Ensure workspace skills are in the image
-COPY workspace/skills/ /app/workspace/skills/
+# Ensure workspace soul files are in the image
+# (skills are now in plato/skills/ domain directory, loaded via harness)
 
 # Create non-root user (Claude Code CLI refuses to run as root)
 RUN useradd -m -s /bin/bash plato && \

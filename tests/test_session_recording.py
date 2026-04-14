@@ -32,7 +32,7 @@ def hook() -> SessionRecordingHook:
     return SessionRecordingHook(
         session_id="sess_001",
         tenant_id="tenant_abc",
-        skill_name="aidlc_inception",
+        skill_name="aidlc-inception",
     )
 
 
@@ -169,7 +169,7 @@ class TestGetSessionRecord:
         assert len(record["tool_calls"]) == 1
 
         metadata = record["metadata"]
-        assert metadata["skill_name"] == "aidlc_inception"
+        assert metadata["skill_name"] == "aidlc-inception"
         assert metadata["total_tool_calls"] == 1
         assert metadata["total_duration_ms"] > 0
 
@@ -242,7 +242,7 @@ class TestS3Payload:
         assert data["start_time"] is not None
         assert data["end_time"] is not None
         assert len(data["tool_calls"]) == 1
-        assert data["metadata"]["skill_name"] == "aidlc_inception"
+        assert data["metadata"]["skill_name"] == "aidlc-inception"
 
 
 class TestContentTruncation:

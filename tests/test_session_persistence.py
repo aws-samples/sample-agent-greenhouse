@@ -200,9 +200,9 @@ class TestMemoryExtractionEnabled:
         assert agent.memory_extraction_hook in agent.hook_registry
 
     def test_hook_count_with_memory_extraction(self):
-        """11 core + 1 extraction = 12 hooks."""
+        """10 core + 1 extraction = 11 hooks."""
         agent = FoundationStrandsAgent(enable_memory_extraction=True)
-        assert len(agent.hook_registry) == 12
+        assert len(agent.hook_registry) == 11
 
 
 # ---------------------------------------------------------------------------
@@ -211,20 +211,20 @@ class TestMemoryExtractionEnabled:
 
 
 class TestHookRegistryV1:
-    """Verify v1 hook registry has 11 core hooks."""
+    """Verify v1 hook registry has 10 core hooks."""
 
     def test_core_hook_count(self):
-        """11 core hooks (CompactionHook removed)."""
+        """10 core hooks (CompactionHook + StmIngestionHook removed)."""
         agent = FoundationStrandsAgent()
-        assert len(agent.hook_registry) == 11
+        assert len(agent.hook_registry) == 10
 
     def test_with_all_optional_hooks(self):
-        """11 core + 2 optional = 13 hooks."""
+        """10 core + 2 optional = 12 hooks."""
         agent = FoundationStrandsAgent(
             enable_memory_extraction=True,
             enable_consolidation=True,
         )
-        assert len(agent.hook_registry) == 13
+        assert len(agent.hook_registry) == 12
 
 
 # ---------------------------------------------------------------------------

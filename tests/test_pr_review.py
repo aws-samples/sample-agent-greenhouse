@@ -160,15 +160,15 @@ class TestSkillRegistration:
         assert issubclass(PRReviewSkill, SkillPack)
 
     def test_skill_name(self) -> None:
-        """Skill name is 'pr_review'."""
+        """Skill name is 'pr-review'."""
         skill = PRReviewSkill()
-        assert skill.name == "pr_review"
+        assert skill.name == "pr-review"
 
     def test_skill_has_system_prompt(self) -> None:
-        """Skill has a non-empty system prompt."""
+        """Skill has system_prompt_extension cleared (SKILL.md is sole source)."""
         skill = PRReviewSkill()
-        assert len(skill.system_prompt_extension) > 0
-        assert "Review" in skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        assert skill.system_prompt_extension == ""
 
     def test_skill_tools_list(self) -> None:
         """Skill references the review tool."""
@@ -178,12 +178,12 @@ class TestSkillRegistration:
     def test_load_skill(self) -> None:
         """load_skill creates a configured instance."""
         skill = load_skill(PRReviewSkill)
-        assert skill.name == "pr_review"
+        assert skill.name == "pr-review"
 
     def test_skill_registered_in_registry(self) -> None:
         """Skill is available via the registry."""
         from platform_agent.plato.skills import get_skill
-        cls = get_skill("pr_review")
+        cls = get_skill("pr-review")
         assert cls is PRReviewSkill
 
     def test_tools_list_has_all_tools(self) -> None:

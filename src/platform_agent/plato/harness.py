@@ -1,5 +1,7 @@
 """Plato domain harness factory — returns config matching plato_harness.yaml."""
 
+from pathlib import Path
+
 from platform_agent.foundation.harness import (
     DomainHarness,
     EvalRule,
@@ -13,6 +15,10 @@ from platform_agent.foundation.harness import (
 
 def create_plato_harness() -> DomainHarness:
     """Return the complete Plato domain harness matching plato_harness.yaml."""
+    # Domain skills directory — resolved relative to plato/skills/ package
+    import platform_agent.plato.skills as _ps
+    plato_skills_dir = str(Path(_ps.__file__).parent)
+
     return DomainHarness(
         name="plato",
         description=(
@@ -20,9 +26,10 @@ def create_plato_harness() -> DomainHarness:
             " \u2014 helps developers build, review, and deploy agent applications"
         ),
         version="1.0.0",
+        skill_directories=[plato_skills_dir],
         skills=[
             SkillRef(
-                name="aidlc_inception",
+                name="aidlc-inception",
                 description="Guided AIDLC inception workflow",
                 tools=[
                     "aidlc_start_inception",
@@ -35,7 +42,7 @@ def create_plato_harness() -> DomainHarness:
                 ],
             ),
             SkillRef(
-                name="code_review",
+                name="code-review",
                 description="Security and quality code reviewer",
                 tools=["Read", "Glob", "Grep"],
             ),
@@ -45,17 +52,17 @@ def create_plato_harness() -> DomainHarness:
                 tools=["Read", "Glob", "Grep", "Bash"],
             ),
             SkillRef(
-                name="deployment_config",
+                name="deployment-config",
                 description="Deployment configuration generator",
                 tools=["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
             ),
             SkillRef(
-                name="design_advisor",
+                name="design-advisor",
                 description="Architecture and platform readiness assessor",
                 tools=["Read", "Glob", "Grep"],
             ),
             SkillRef(
-                name="fleet_ops",
+                name="fleet-ops",
                 description="Fleet operations management",
                 tools=["Read", "Glob", "Grep", "Bash"],
             ),
@@ -65,7 +72,7 @@ def create_plato_harness() -> DomainHarness:
                 tools=["Read", "Glob", "Grep"],
             ),
             SkillRef(
-                name="issue_creator",
+                name="issue-creator",
                 description="Structured GitHub issue creator",
                 tools=["create_spec_violation_issue", "create_issues_from_review"],
             ),
@@ -90,7 +97,7 @@ def create_plato_harness() -> DomainHarness:
                 tools=["Read", "Write", "Glob", "Grep"],
             ),
             SkillRef(
-                name="pr_review",
+                name="pr-review",
                 description="PR review with spec tracing",
                 tools=["review_pull_request"],
             ),
@@ -100,12 +107,12 @@ def create_plato_harness() -> DomainHarness:
                 tools=["Read", "Write", "Edit", "Bash", "Glob"],
             ),
             SkillRef(
-                name="spec_compliance",
+                name="spec-compliance",
                 description="Spec compliance checker",
                 tools=["check_spec_compliance", "check_single_ac"],
             ),
             SkillRef(
-                name="test_case_generator",
+                name="test-case-generator",
                 description="Spec-to-test-case generator (1:1 AC-to-TC)",
                 tools=["generate_test_cases_from_spec"],
             ),
@@ -140,7 +147,7 @@ def create_plato_harness() -> DomainHarness:
                 "compliance_report",
                 "review_findings",
                 "design_assessment",
-                "deployment_config",
+                "deployment-config",
             ],
             ttl_days=90,
             extraction_enabled=False,

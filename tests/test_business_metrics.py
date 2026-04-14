@@ -65,16 +65,16 @@ class TestSkillUsageTracking:
 
     def test_skill_usage_tracking(self, hook: BusinessMetricsHook):
         """Invoke twice with different skills, verify counts."""
-        event1 = _make_invocation_event(skill_name="aidlc_inception")
-        event2 = _make_invocation_event(skill_name="code_review")
-        event3 = _make_invocation_event(skill_name="aidlc_inception")
+        event1 = _make_invocation_event(skill_name="aidlc-inception")
+        event2 = _make_invocation_event(skill_name="code-review")
+        event3 = _make_invocation_event(skill_name="aidlc-inception")
 
         hook.on_before_invocation(event1)
         hook.on_before_invocation(event2)
         hook.on_before_invocation(event3)
 
-        assert hook.skill_usage_count["aidlc_inception"] == 2
-        assert hook.skill_usage_count["code_review"] == 1
+        assert hook.skill_usage_count["aidlc-inception"] == 2
+        assert hook.skill_usage_count["code-review"] == 1
 
 
 class TestUniqueDeveloperTracking:

@@ -146,7 +146,7 @@ class TestTaskDispatchIntegration:
             role="reviewer",
             agent_id="reviewer",
             capabilities=[
-                Capability(name="code_review", confidence=0.9),
+                Capability(name="code-review", confidence=0.9),
                 Capability(name="code_generation", confidence=0.5),
             ],
         )
@@ -170,7 +170,7 @@ class TestTaskDispatchIntegration:
         task = tm.create_task(
             tenant_id="t1",
             intent="review pull request",
-            required_capabilities=["code_review"],
+            required_capabilities=["code-review"],
         )
         dispatcher.dispatch(task)
         assert task.assigned_to == "reviewer"
@@ -551,7 +551,7 @@ class TestEndToEndWorkflow:
             tenant_id="t1",
             role="reviewer",
             agent_id="reviewer",
-            capabilities=[Capability(name="code_review", confidence=0.95)],
+            capabilities=[Capability(name="code-review", confidence=0.95)],
         )
         csp.boot("t1", "coder")
         csp.boot("t1", "reviewer")
@@ -595,7 +595,7 @@ class TestEndToEndWorkflow:
         review_task = tm.create_task(
             tenant_id="t1",
             intent="review code",
-            required_capabilities=["code_review"],
+            required_capabilities=["code-review"],
             source_agent="coder",
         )
         dispatcher.dispatch(review_task)

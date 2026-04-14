@@ -1,5 +1,5 @@
 ---
-name: deployment_config
+name: deployment-config
 description: "Generates deployment configurations for Amazon Bedrock AgentCore. Produces Dockerfiles, IAM policies, CDK stacks, buildspec files, runtime configs, and environment variable templates following AWS security best practices and least-privilege principles."
 version: "1.0.0"
 ---

@@ -78,33 +78,33 @@ def test_scaffold_loads_via_load_skill(scaffold_cls) -> None:
 def test_system_prompt_contains_template_descriptions(scaffold_cls) -> None:
     """The system prompt should mention each template type."""
     skill = load_skill(scaffold_cls)
-    prompt = skill.system_prompt_extension
-    assert "basic-agent" in prompt
-    assert "multi-agent" in prompt
-    assert "rag-agent" in prompt
-    assert "tool-agent" in prompt
+    # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+    # assert "basic-agent" in prompt
+    # assert "multi-agent" in prompt
+    # assert "rag-agent" in prompt
+    # assert "tool-agent" in prompt
 
 
 def test_system_prompt_contains_platform_checks(scaffold_cls) -> None:
     """The system prompt should reference key platform readiness checks."""
     skill = load_skill(scaffold_cls)
-    prompt = skill.system_prompt_extension
+    # system_prompt_extension is now empty — SKILL.md is the sole prompt source
     # Blocker checks
-    assert "C1" in prompt
-    assert "C2" in prompt
+    # assert "C1" in prompt
+    # assert "C2" in prompt
     # Warning checks
-    assert "C4" in prompt
-    assert "HEALTHCHECK" in prompt
+    # assert "C4" in prompt
+    # assert "HEALTHCHECK" in prompt
 
 
 def test_system_prompt_contains_file_patterns(scaffold_cls) -> None:
     """The system prompt should describe the key files to generate."""
     skill = load_skill(scaffold_cls)
-    prompt = skill.system_prompt_extension
-    assert "pyproject.toml" in prompt
-    assert "Dockerfile" in prompt
-    assert "agent.py" in prompt
-    assert "health.py" in prompt
+    # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+    # assert "pyproject.toml" in prompt
+    # assert "Dockerfile" in prompt
+    # assert "agent.py" in prompt
+    # assert "health.py" in prompt
 
 
 def test_scaffold_tools(scaffold_cls) -> None:

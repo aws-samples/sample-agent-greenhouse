@@ -1,5 +1,5 @@
 ---
-name: code_review
+name: code-review
 description: "Reviews agent code for security vulnerabilities, quality issues, and agent-specific best practices. Checks for prompt injection, credential exposure, unsafe execution, error handling, and testing."
 version: "1.0.0"
 ---

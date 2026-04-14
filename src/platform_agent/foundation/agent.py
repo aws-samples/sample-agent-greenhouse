@@ -19,7 +19,7 @@ from typing import Any, Callable
 
 from platform_agent.foundation.soul import SoulSystem
 from platform_agent.foundation.memory import WorkspaceMemory
-from platform_agent.foundation.skills.registry import SkillRegistry
+from platform_agent.foundation.skills.registry import SkillRegistry  # noqa: F401 — kept for backward compat import path
 
 # Strands AgentSkills plugin — replaces SkillRegistry for prompt injection.
 # Import lazily with fallback for backward compatibility.
@@ -212,33 +212,36 @@ class FoundationAgent:
             self.workspace_memory = WorkspaceMemory(workspace_dir=workspace_dir)
 
         # Skill registry (kept for backward compat; deprecated when AgentSkills available)
+        # SkillRegistry — deprecated, kept for backward compatibility.
+        # When AgentSkills plugin is active, SkillRegistry is not used.
         self.skill_registry = SkillRegistry(workspace_dir=workspace_dir)
-        if workspace_dir:
-            self.skill_registry.discover()
 
         # Strands AgentSkills plugin — preferred over SkillRegistry when available.
         # The plugin handles SKILL.md discovery, system-prompt injection, and the
         # skills() tool automatically.
+        #
+        # Skill source priority:
+        #   1. harness.skill_directories (domain-driven — single source of truth)
+        #   2. Fallback: workspace/skills/ (backward compat when no harness)
         self._skills_plugin = None
-        if _AgentSkills is not None and workspace_dir:
+        if _AgentSkills is not None:
             from pathlib import Path
             skill_sources: list[str] = []
 
-            # Workspace skills (user-defined)
-            ws_skills = Path(workspace_dir) / "skills"
-            if ws_skills.is_dir():
-                skill_sources.append(str(ws_skills))
-
-            # Domain skills from SkillPack SKILL.md files (Phase 2)
-            try:
-                import platform_agent.plato.skills as _ps
-                domain_skills = Path(_ps.__file__).parent
-                # Only add if at least one SKILL.md exists in subdirs
-                if any(domain_skills.glob("*/SKILL.md")):
-                    skill_sources.append(str(domain_skills))
-                    logger.info("Domain skills discovered (%s)", domain_skills)
-            except ImportError:
-                pass  # plato not installed — skip domain skills
+            if harness and harness.skill_directories:
+                # Domain harness declares where to find skills
+                skill_sources = list(harness.skill_directories)
+                logger.info(
+                    "Skill directories from harness: %s", skill_sources
+                )
+            elif workspace_dir:
+                # Fallback: no harness — scan workspace/skills/ for compat
+                ws_skills = Path(workspace_dir) / "skills"
+                if ws_skills.is_dir():
+                    skill_sources.append(str(ws_skills))
+                    logger.info(
+                        "Fallback: workspace skills at %s", ws_skills
+                    )
 
             if skill_sources:
                 self._skills_plugin = _AgentSkills(skills=skill_sources)

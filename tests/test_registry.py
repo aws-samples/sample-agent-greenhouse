@@ -27,7 +27,7 @@ class TestCapability:
         assert cap.confidence == 1.0
 
     def test_create_custom_confidence(self):
-        cap = Capability(name="code_review", confidence=0.8)
+        cap = Capability(name="code-review", confidence=0.8)
         assert cap.confidence == 0.8
 
     def test_to_dict(self):

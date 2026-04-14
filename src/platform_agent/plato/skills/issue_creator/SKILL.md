@@ -1,5 +1,5 @@
 ---
-name: issue_creator
+name: issue-creator
 description: "Create structured GitHub issues from review and compliance findings"
 version: "1.0.0"
 ---

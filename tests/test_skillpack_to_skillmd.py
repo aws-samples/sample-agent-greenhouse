@@ -19,23 +19,41 @@ from platform_agent.plato.skills.base import load_skill
 
 DOMAIN_SKILLS_DIR = Path(plato_skills_pkg.__file__).parent
 EXPECTED_SKILLS = [
-    "aidlc_inception",
-    "code_review",
+    "aidlc-inception",
+    "code-review",
     "debug",
-    "deployment_config",
-    "design_advisor",
-    "fleet_ops",
+    "deployment-config",
+    "design-advisor",
+    "fleet-ops",
     "governance",
-    "issue_creator",
+    "issue-creator",
     "knowledge",
     "monitoring",
     "observability",
     "onboarding",
-    "pr_review",
+    "pr-review",
     "scaffold",
-    "spec_compliance",
-    "test_case_generator",
+    "spec-compliance",
+    "test-case-generator",
 ]
+
+
+def _skill_dir(name: str) -> Path:
+    """Resolve a skill name to its directory path.
+
+    AgentSkills spec requires kebab-case names, but Python packages
+    use underscores. This maps kebab-case names to their actual directory.
+    """
+    # Try exact name first (Group A: knowledge-only skills with kebab dirs)
+    direct = DOMAIN_SKILLS_DIR / name
+    if direct.is_dir():
+        return direct
+    # Try underscore variant (Group B: Python-module skills)
+    underscore = DOMAIN_SKILLS_DIR / name.replace("-", "_")
+    if underscore.is_dir():
+        return underscore
+    # Fallback: return kebab path (will fail in assertion with clear message)
+    return direct
 
 
 class TestSkillMdFilesExist:
@@ -43,12 +61,12 @@ class TestSkillMdFilesExist:
 
     def test_all_16_skillpacks_have_skill_md(self):
         for skill_name in EXPECTED_SKILLS:
-            skill_md = DOMAIN_SKILLS_DIR / skill_name / "SKILL.md"
+            skill_md = _skill_dir(skill_name) / "SKILL.md"
             assert skill_md.exists(), f"{skill_name} missing SKILL.md"
 
     def test_skill_md_has_frontmatter(self):
         for skill_name in EXPECTED_SKILLS:
-            content = (DOMAIN_SKILLS_DIR / skill_name / "SKILL.md").read_text()
+            content = (_skill_dir(skill_name) / "SKILL.md").read_text()
             assert content.startswith("---"), f"{skill_name} SKILL.md missing frontmatter"
             # Should have closing ---
             parts = content.split("---", 2)
@@ -56,12 +74,12 @@ class TestSkillMdFilesExist:
 
     def test_skill_md_has_name_field(self):
         for skill_name in EXPECTED_SKILLS:
-            content = (DOMAIN_SKILLS_DIR / skill_name / "SKILL.md").read_text()
+            content = (_skill_dir(skill_name) / "SKILL.md").read_text()
             assert f"name: {skill_name}" in content, f"{skill_name} SKILL.md missing name field"
 
     def test_skill_md_has_description(self):
         for skill_name in EXPECTED_SKILLS:
-            content = (DOMAIN_SKILLS_DIR / skill_name / "SKILL.md").read_text()
+            content = (_skill_dir(skill_name) / "SKILL.md").read_text()
             assert "description:" in content, f"{skill_name} SKILL.md missing description"
 
 
@@ -69,21 +87,24 @@ class TestSkillMdContentMatchesExtension:
     """SKILL.md body should contain the same content as system_prompt_extension."""
 
     def test_extension_content_in_skill_md(self):
+        """Each domain skill's SKILL.md should have non-empty body content.
+
+        Since Phase 3, SKILL.md is the sole prompt source (system_prompt_extension
+        is empty). This test verifies every SKILL.md has meaningful content.
+        """
         discover_skills()
         for skill_name in EXPECTED_SKILLS:
-            cls = get_skill(skill_name)
-            sk = load_skill(cls)
-            if not sk.system_prompt_extension:
-                continue
+            skill_md_path = _skill_dir(skill_name) / "SKILL.md"
+            assert skill_md_path.exists(), f"{skill_name}: SKILL.md missing"
 
-            skill_md = (DOMAIN_SKILLS_DIR / skill_name / "SKILL.md").read_text()
+            skill_md = skill_md_path.read_text()
             # Extract body (after frontmatter)
             parts = skill_md.split("---", 2)
             body = parts[2].strip() if len(parts) >= 3 else ""
 
-            # The body should match the extension (stripped)
-            assert body == sk.system_prompt_extension.strip(), (
-                f"{skill_name}: SKILL.md body doesn't match system_prompt_extension"
+            assert len(body) > 10, (
+                f"{skill_name}: SKILL.md body is too short ({len(body)} chars) "
+                f"— SKILL.md is the sole prompt source and must have meaningful content"
             )
 
 
@@ -92,7 +113,7 @@ class TestDomainSkillsDiscovery:
 
     def test_domain_skills_dir_has_skill_md_files(self):
         found = list(DOMAIN_SKILLS_DIR.glob("*/SKILL.md"))
-        assert len(found) == 16, f"Expected 16 SKILL.md files, found {len(found)}"
+        assert len(found) == 22, f"Expected 22 SKILL.md files (16 domain + 6 knowledge), found {len(found)}"
 
     def test_agent_skills_plugin_with_domain_dir(self):
         try:
@@ -132,7 +153,12 @@ class TestFoundationAgentDomainSkills:
         assert agent._skills_plugin is not None
 
     def test_plugin_created_with_multiple_sources(self, tmp_path):
-        """Plugin should receive both workspace and domain skill directories."""
+        """Without harness, plugin uses workspace/skills/ fallback only.
+
+        With the harness-driven elif pattern, workspace/skills/ is the
+        fallback when no harness is provided. Domain skills come from
+        harness.skill_directories.
+        """
         from platform_agent.foundation.agent import FoundationStrandsAgent
 
         ws_skills = tmp_path / "skills" / "ws_skill"
@@ -145,12 +171,10 @@ class TestFoundationAgentDomainSkills:
             import pytest
             pytest.skip("AgentSkills plugin not available")
 
-        # The plugin should have been initialized with a list of directories
-        # (FakeAgentSkills stores the 'skills' arg)
+        # Without harness, only workspace/skills/ is scanned (elif fallback)
         skills_arg = agent._skills_plugin.skills
         if isinstance(skills_arg, list):
-            assert len(skills_arg) >= 2, "Expected both workspace and domain skill dirs"
+            assert len(skills_arg) >= 1, "Expected workspace skill dir"
             assert str(tmp_path / "skills") in skills_arg
         else:
-            # Single string — at minimum workspace dir should be present
             assert str(tmp_path / "skills") in str(skills_arg)

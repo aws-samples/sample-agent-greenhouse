@@ -148,7 +148,7 @@ def test_discover_skills_populates_registry() -> None:
         del sys.modules[k]
     discover_skills()
     names = list_skills()
-    assert "design_advisor" in names
+    assert "design-advisor" in names
     assert "scaffold" in names
-    assert "code_review" in names
-    assert "deployment_config" in names
+    assert "code-review" in names
+    assert "deployment-config" in names

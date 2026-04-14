@@ -96,9 +96,9 @@ class TestSkillRegistration:
         assert issubclass(TCGeneratorSkill, SkillPack)
 
     def test_skill_name(self) -> None:
-        """Skill name is 'test_case_generator'."""
+        """Skill name is 'test-case-generator'."""
         skill = TCGeneratorSkill()
-        assert skill.name == "test_case_generator"
+        assert skill.name == "test-case-generator"
 
     def test_skill_description(self) -> None:
         """Skill has a non-empty description."""
@@ -107,10 +107,10 @@ class TestSkillRegistration:
         assert "test case" in skill.description.lower()
 
     def test_skill_has_system_prompt(self) -> None:
-        """Skill has a non-empty system prompt."""
+        """Skill has system_prompt_extension cleared (SKILL.md is sole source)."""
         skill = TCGeneratorSkill()
-        assert len(skill.system_prompt_extension) > 0
-        assert "Test Case" in skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        assert skill.system_prompt_extension == ""
 
     def test_skill_tools_list(self) -> None:
         """Skill references the generate tool name."""
@@ -120,12 +120,12 @@ class TestSkillRegistration:
     def test_load_skill(self) -> None:
         """load_skill creates a configured instance."""
         skill = load_skill(TCGeneratorSkill)
-        assert skill.name == "test_case_generator"
+        assert skill.name == "test-case-generator"
 
     def test_skill_registered_in_registry(self) -> None:
         """Skill is available via the registry."""
         from platform_agent.plato.skills import get_skill
-        cls = get_skill("test_case_generator")
+        cls = get_skill("test-case-generator")
         assert cls is TCGeneratorSkill
 
     def test_tools_list_has_all_tools(self) -> None:

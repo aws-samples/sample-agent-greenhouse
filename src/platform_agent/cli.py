@@ -138,7 +138,7 @@ def readiness(repo: str, verbose: bool):
         "Run all 12 checks (C1-C12) and provide the full report with "
         "evidence, recommendations, and overall assessment."
     )
-    result = _run_agent_with_skill("design_advisor", prompt, cwd=repo, verbose=verbose)
+    result = _run_agent_with_skill("design-advisor", prompt, cwd=repo, verbose=verbose)
     click.echo(result)
 
 
@@ -170,7 +170,7 @@ def review(repo: str, focus: str, verbose: bool):
         f"Review the agent codebase at {repo}. {focus_desc[focus]} "
         "Provide specific file and line references for each finding."
     )
-    result = _run_agent_with_skill("code_review", prompt, cwd=repo, verbose=verbose)
+    result = _run_agent_with_skill("code-review", prompt, cwd=repo, verbose=verbose)
     click.echo(result)
 
 
@@ -230,7 +230,7 @@ def deploy_config(repo: str, target: str, verbose: bool):
         "First check platform readiness — if there are blockers, report them "
         "before generating configs."
     )
-    result = _run_agent_with_skill("deployment_config", prompt, cwd=repo, verbose=verbose)
+    result = _run_agent_with_skill("deployment-config", prompt, cwd=repo, verbose=verbose)
     click.echo(result)
 
 
@@ -258,7 +258,7 @@ def inception(repo: str, complexity: str, verbose: bool):
         f"Project complexity is {complexity}. "
         "Guide the team through all inception stages and generate deliverables."
     )
-    result = _run_agent_with_skill("aidlc_inception", prompt, cwd=repo, verbose=verbose)
+    result = _run_agent_with_skill("aidlc-inception", prompt, cwd=repo, verbose=verbose)
     click.echo(result)
 
 
@@ -282,7 +282,7 @@ def compliance(repo: str, spec_path: str, branch: str, verbose: bool):
         "Check all acceptance criteria for implementation evidence and test coverage. "
         "Provide a detailed compliance report."
     )
-    result = _run_agent_with_skill("spec_compliance", prompt, cwd=repo, verbose=verbose)
+    result = _run_agent_with_skill("spec-compliance", prompt, cwd=repo, verbose=verbose)
     click.echo(result)
 
 
@@ -307,7 +307,7 @@ def test_gen(repo: str, spec_path: str, branch: str, verbose: bool):
         "Create one test case per acceptance criterion with full traceability. "
         "Output structured test-cases.md content."
     )
-    result = _run_agent_with_skill("test_case_generator", prompt, cwd=repo, verbose=verbose)
+    result = _run_agent_with_skill("test-case-generator", prompt, cwd=repo, verbose=verbose)
     click.echo(result)
 
 

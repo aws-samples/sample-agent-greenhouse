@@ -21,10 +21,10 @@ class TestSkillDiscovery:
 
     def test_discover_skills_in_directory(self, tmp_path):
         skills_dir = tmp_path / "skills"
-        skill1_dir = skills_dir / "code_review"
+        skill1_dir = skills_dir / "code-review"
         skill1_dir.mkdir(parents=True)
         (skill1_dir / "SKILL.md").write_text(
-            "---\nname: code_review\ndescription: Reviews code quality\n---\n"
+            "---\nname: code-review\ndescription: Reviews code quality\n---\n"
             "Full instructions for code review."
         )
         skill2_dir = skills_dir / "deployment"
@@ -38,7 +38,7 @@ class TestSkillDiscovery:
         skills = registry.list_skills()
         assert len(skills) == 2
         names = [s.name for s in skills]
-        assert "code_review" in names
+        assert "code-review" in names
         assert "deployment" in names
 
     def test_discover_empty_directory(self, tmp_path):

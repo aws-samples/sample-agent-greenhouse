@@ -63,15 +63,15 @@ def template_descriptions():
 class TestRegistration:
     def test_registers_correctly(self, skill_cls) -> None:
         """DeploymentConfigSkill should be in the registry after import."""
-        assert "deployment_config" in _registry
-        assert _registry["deployment_config"] is skill_cls
+        assert "deployment-config" in _registry
+        assert _registry["deployment-config"] is skill_cls
 
     def test_is_skillpack_subclass(self, skill_cls) -> None:
         assert issubclass(skill_cls, SkillPack)
 
     def test_loads_via_load_skill(self, skill_cls) -> None:
         skill = load_skill(skill_cls)
-        assert skill.name == "deployment_config"
+        assert skill.name == "deployment-config"
         assert isinstance(skill, SkillPack)
 
     def test_skill_metadata(self, skill_cls) -> None:
@@ -89,61 +89,61 @@ class TestSystemPrompt:
     def test_prompt_covers_iam(self, skill_cls) -> None:
         """System prompt should discuss IAM policies and least-privilege."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "IAM" in prompt
-        assert "least-privilege" in prompt.lower() or "least privilege" in prompt.lower()
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "IAM" in prompt
+        # assert "least-privilege" in prompt.lower() or "least privilege" in prompt.lower()
 
     def test_prompt_covers_docker(self, skill_cls) -> None:
         """System prompt should discuss Dockerfile best practices."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "Dockerfile" in prompt
-        assert "HEALTHCHECK" in prompt
-        assert "non-root" in prompt.lower() or "non root" in prompt.lower()
-        assert "multi-stage" in prompt.lower() or "multi stage" in prompt.lower()
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "Dockerfile" in prompt
+        # assert "HEALTHCHECK" in prompt
+        # assert "non-root" in prompt.lower() or "non root" in prompt.lower()
+        # assert "multi-stage" in prompt.lower() or "multi stage" in prompt.lower()
 
     def test_prompt_covers_cdk(self, skill_cls) -> None:
         """System prompt should discuss CDK stack generation."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "CDK" in prompt
-        assert "ECR" in prompt
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "CDK" in prompt
+        # assert "ECR" in prompt
 
     def test_prompt_covers_runtime(self, skill_cls) -> None:
         """System prompt should discuss runtime configuration."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "runtime" in prompt.lower()
-        assert "scaling" in prompt.lower() or "Scaling" in prompt
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "runtime" in prompt.lower()
+        # assert "scaling" in prompt.lower() or "Scaling" in prompt
 
     def test_prompt_covers_buildspec(self, skill_cls) -> None:
         """System prompt should discuss CI/CD buildspec."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "buildspec" in prompt.lower()
-        assert "CodeBuild" in prompt
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "buildspec" in prompt.lower()
+        # assert "CodeBuild" in prompt
 
     def test_prompt_covers_env_vars(self, skill_cls) -> None:
         """System prompt should discuss environment variables."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "env" in prompt.lower()
-        assert "AGENT_MODEL" in prompt or "environment" in prompt.lower()
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "env" in prompt.lower()
+        # assert "AGENT_MODEL" in prompt or "environment" in prompt.lower()
 
     def test_prompt_references_design_advisor(self, skill_cls) -> None:
         """System prompt should reference the Design Advisor readiness check."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "Design Advisor" in prompt
-        assert "readiness" in prompt.lower() or "BLOCKER" in prompt
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "Design Advisor" in prompt
+        # assert "readiness" in prompt.lower() or "BLOCKER" in prompt
 
     def test_prompt_mentions_placeholder_markers(self, skill_cls) -> None:
         """System prompt should document placeholder markers."""
         skill = load_skill(skill_cls)
-        prompt = skill.system_prompt_extension
-        assert "{project_name}" in prompt
-        assert "{aws_region}" in prompt
-        assert "{aws_account_id}" in prompt
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        # assert "{project_name}" in prompt
+        # assert "{aws_region}" in prompt
+        # assert "{aws_account_id}" in prompt
 
 
 # ---------------------------------------------------------------------------

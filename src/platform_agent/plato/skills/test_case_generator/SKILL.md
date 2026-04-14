@@ -1,5 +1,5 @@
 ---
-name: test_case_generator
+name: test-case-generator
 description: "Generate structured test cases from spec.md acceptance criteria with 1:1 AC-to-TC traceability"
 version: "1.0.0"
 ---

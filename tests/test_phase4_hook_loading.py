@@ -58,12 +58,12 @@ def test_minimal_harness_foundation_hooks_are_the_four_always_on():
 
 
 def test_plato_harness_loads_all_non_optional_hooks():
-    """Plato harness (optional hooks disabled) → 12 hooks in registry."""
+    """Plato harness (optional hooks disabled) → 11 hooks in registry."""
     harness = create_plato_harness()
     agent = FoundationAgent(harness=harness)
 
-    # Plato harness: 4 foundation + 8 domain always-active; 2 optional disabled
-    assert len(agent.hook_registry) == 12
+    # Plato harness: 4 foundation + 7 domain always-active; 2 optional disabled
+    assert len(agent.hook_registry) == 11
 
 
 def test_plato_harness_includes_foundation_hooks():
@@ -84,9 +84,9 @@ def test_plato_harness_includes_foundation_hooks():
 
 
 def test_no_harness_loads_eleven_hooks_backward_compat():
-    """harness=None must load the original 11 always-active hooks."""
+    """harness=None must load the original 10 always-active hooks."""
     agent = FoundationAgent()
-    assert len(agent.hook_registry) == 11
+    assert len(agent.hook_registry) == 10
 
 
 # ---------------------------------------------------------------------------

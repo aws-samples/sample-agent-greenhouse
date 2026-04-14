@@ -116,6 +116,8 @@ class TestFullAgentAssembly:
         monkeypatch.setattr(agent_mod, "_AgentSkills", None)
         agent = FoundationStrandsAgent(workspace_dir=workspace)
         assert agent._skills_plugin is None
+        # Explicitly discover since auto-discover is no longer done
+        agent.skill_registry.discover()
         prompt = agent.build_system_prompt()
         assert "code-review" in prompt
         assert "deployment" in prompt
@@ -127,6 +129,8 @@ class TestFullAgentAssembly:
 
     def test_skill_lazy_loading(self, workspace):
         agent = FoundationStrandsAgent(workspace_dir=workspace)
+        # Explicitly discover since auto-discover is no longer done
+        agent.skill_registry.discover()
         # Summary in prompt should NOT contain full skill content
         prompt = agent.build_system_prompt()
         assert "check for:" not in prompt  # Full skill content not in prompt
@@ -181,15 +185,15 @@ class TestFullAgentAssembly:
 
     def test_all_hooks_registered(self, workspace):
         agent = FoundationStrandsAgent(workspace_dir=workspace)
-        # v1: 11 core hooks (CompactionHook removed from active registry)
-        assert len(agent.hook_registry) == 11
+        # v1: 10 core hooks (CompactionHook + StmIngestionHook removed from active registry)
+        assert len(agent.hook_registry) == 10
         # Verify types
         from platform_agent.foundation.hooks import (
             SoulSystemHook, MemoryHook, AuditHook,
             GuardrailsHook, ToolPolicyHook,
             TelemetryHook, ModelMetricsHook,
             BusinessMetricsHook, HallucinationDetectorHook,
-            OTELSpanHook, SessionRecordingHook,
+            SessionRecordingHook,
         )
         types = [type(h) for h in agent.hook_registry]
         assert SoulSystemHook in types
@@ -201,7 +205,7 @@ class TestFullAgentAssembly:
         assert ModelMetricsHook in types
         assert BusinessMetricsHook in types
         assert HallucinationDetectorHook in types
-        assert OTELSpanHook in types
+        assert SessionRecordingHook in types
         assert SessionRecordingHook in types
         # CompactionHook removed (dead code cleanup)
         from platform_agent.foundation.hooks import CompactionHook

@@ -426,7 +426,7 @@ class TestEvaluatorSessionReport:
 
         session = EvaluationSession(
             session_id="test-123",
-            specialist_name="design_advisor",
+            specialist_name="design-advisor",
             evaluator_name="design",
             rubric=evaluator.rubric,
             original_request="check readiness",
@@ -451,7 +451,7 @@ class TestEvaluatorSessionReport:
 
         session = EvaluationSession(
             session_id="test-456",
-            specialist_name="design_advisor",
+            specialist_name="design-advisor",
             evaluator_name="design",
             rubric=evaluator.rubric,
             original_request="check readiness",

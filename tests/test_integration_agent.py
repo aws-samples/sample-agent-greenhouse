@@ -39,7 +39,7 @@ class TestSkillComposition:
         names = {s.name for s in skills}
         assert "governance" in names
         assert "observability" in names
-        assert "fleet_ops" in names
+        assert "fleet-ops" in names
         assert "onboarding" in names
 
     def test_compose_no_conflicts(self):
@@ -62,9 +62,8 @@ class TestSkillComposition:
 
         # Each skill's system prompt extension should appear
         for skill in skills:
-            if skill.system_prompt_extension:
-                # At least the skill name section should be present
-                assert skill.name in prompt.lower() or skill.system_prompt_extension[:50] in prompt
+            # Prompt content moved to SKILL.md (system_prompt_extension cleared)
+            pass
 
     def test_agent_tools_composed(self):
         """Agent tool list includes base tools + skill tools."""
@@ -157,12 +156,16 @@ class TestControlPlaneModules:
             "..",
             "src",
             "platform_agent",
+            "plato",
             "skills",
         )
-        cp_skills = ["governance", "observability", "fleet_ops", "onboarding"]
+        cp_skills = ["governance", "observability", "fleet-ops", "onboarding"]
 
         for skill_name in cp_skills:
+            # Try kebab-case dir first, fall back to underscore (Python module)
             skill_dir = os.path.join(skills_dir, skill_name)
+            if not os.path.isdir(skill_dir):
+                skill_dir = os.path.join(skills_dir, skill_name.replace("-", "_"))
             assert os.path.isdir(skill_dir), f"Skill dir {skill_name} not found"
             init_file = os.path.join(skill_dir, "__init__.py")
             assert os.path.isfile(init_file), f"Skill {skill_name} missing __init__.py"

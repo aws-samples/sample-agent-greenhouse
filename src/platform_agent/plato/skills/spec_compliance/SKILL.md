@@ -1,5 +1,5 @@
 ---
-name: spec_compliance
+name: spec-compliance
 description: "Verify codebase compliance against spec.md acceptance criteria"
 version: "1.0.0"
 ---

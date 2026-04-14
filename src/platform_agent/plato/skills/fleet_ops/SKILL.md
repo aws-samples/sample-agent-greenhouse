@@ -1,5 +1,5 @@
 ---
-name: fleet_ops
+name: fleet-ops
 description: "Fleet operations specialist for agent restart, scaling, graceful draining, and capacity planning. Use when teams need to restart agents, scale the fleet up or down, drain agents for maintenance, or plan capacity."
 version: "1.0.0"
 ---

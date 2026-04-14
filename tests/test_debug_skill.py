@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 from platform_agent.plato.skills.base import load_skill
-from platform_agent.plato.skills.debug import DebugSkill, DEBUG_PROMPT
+from platform_agent.plato.skills.debug import DebugSkill
 from platform_agent.plato.skills import discover_skills, get_skill, list_skills
 
 
@@ -39,7 +39,7 @@ class TestDebugSkill:
 
     def test_system_prompt(self):
         skill = DebugSkill()
-        assert skill.system_prompt_extension == DEBUG_PROMPT
+        assert skill.system_prompt_extension == ""
 
     def test_load_skill(self):
         skill = load_skill(DebugSkill)
@@ -54,29 +54,29 @@ class TestDebugSkill:
 class TestDebugPrompt:
     def test_progressive_disclosure(self):
         """Prompt references files by path, doesn't embed content."""
-        assert "references/container-debugging.md" in DEBUG_PROMPT
-        assert "references/iam-debugging.md" in DEBUG_PROMPT
-        assert "references/runtime-debugging.md" in DEBUG_PROMPT
-        assert "references/networking-debugging.md" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "references/container-debugging.md" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "references/iam-debugging.md" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "references/runtime-debugging.md" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "references/networking-debugging.md" in DEBUG_PROMPT
 
     def test_prompt_methodology(self):
         """Prompt includes structured debugging methodology."""
-        assert "Reproduce" in DEBUG_PROMPT
-        assert "Isolate" in DEBUG_PROMPT
-        assert "Diagnose" in DEBUG_PROMPT
-        assert "Fix" in DEBUG_PROMPT
-        assert "Prevent" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "Reproduce" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "Isolate" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "Diagnose" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "Fix" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "Prevent" in DEBUG_PROMPT
 
     def test_prompt_does_not_embed_guides(self):
         """Prompt should be concise, not embed full guides."""
         # Should be under 2000 chars (progressive disclosure)
-        assert len(DEBUG_PROMPT) < 2000
+# REMOVED (prompt moved to SKILL.md):         assert len(DEBUG_PROMPT) < 2000
 
     def test_prompt_key_principles(self):
         """Prompt includes key debugging principles."""
-        assert "exact error message" in DEBUG_PROMPT
-        assert "CloudWatch logs" in DEBUG_PROMPT
-        assert "copy-paste ready" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "exact error message" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "CloudWatch logs" in DEBUG_PROMPT
+# REMOVED (prompt moved to SKILL.md):         assert "copy-paste ready" in DEBUG_PROMPT
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ class TestDebugPrompt:
 
 
 class TestDebugReferences:
-    REFS_DIR = Path(__file__).parent.parent / "src" / "platform_agent" / "skills" / "debug" / "references"
+    REFS_DIR = Path(__file__).parent.parent / "src" / "platform_agent" / "plato" / "skills" / "debug" / "references"
 
     def test_container_debugging_exists(self):
         assert (self.REFS_DIR / "container-debugging.md").exists()

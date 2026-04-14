@@ -140,6 +140,8 @@ class TestSystemPromptAssembly:
         )
         agent = FoundationStrandsAgent(workspace_dir=str(tmp_path))
         assert agent._skills_plugin is None
+        # Explicitly discover since auto-discover is no longer done
+        agent.skill_registry.discover()
         prompt = agent.build_system_prompt()
         assert "test_skill" in prompt
 

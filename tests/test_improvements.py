@@ -638,16 +638,16 @@ class TestPromptCacheAwareness:
             FoundationStrandsAgent,
         )
 
-        # Default: 11 hooks (CompactionHook removed from active registry in v1)
+        # Default: 10 hooks (CompactionHook + StmIngestionHook removed from active registry)
         agent = FoundationStrandsAgent()
-        assert len(agent.hook_registry) == 11
+        assert len(agent.hook_registry) == 10
 
-        # With extraction and consolidation enabled: 13 hooks
+        # With extraction and consolidation enabled: 12 hooks
         agent2 = FoundationStrandsAgent(
             enable_memory_extraction=True,
             enable_consolidation=True,
         )
-        assert len(agent2.hook_registry) == 13
+        assert len(agent2.hook_registry) == 12
 
 
 # ---------------------------------------------------------------------------

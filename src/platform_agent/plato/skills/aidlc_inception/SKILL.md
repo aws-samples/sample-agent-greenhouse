@@ -1,5 +1,5 @@
 ---
-name: aidlc_inception
+name: aidlc-inception
 description: "Guide developer teams through AIDLC Inception — structured requirements gathering, design, and artifact generation"
 version: "1.0.0"
 ---

@@ -248,7 +248,7 @@ class TestEvaluationSession:
     def test_creation(self, sample_rubric):
         session = EvaluationSession(
             session_id="test-123",
-            specialist_name="design_advisor",
+            specialist_name="design-advisor",
             evaluator_name="design",
             rubric=sample_rubric,
             original_request="Check readiness",
@@ -260,7 +260,7 @@ class TestEvaluationSession:
     def test_latest_score(self, sample_rubric, passing_scores):
         session = EvaluationSession(
             session_id="test-123",
-            specialist_name="design_advisor",
+            specialist_name="design-advisor",
             evaluator_name="design",
             rubric=sample_rubric,
             original_request="Check readiness",
@@ -286,7 +286,7 @@ class TestEvaluationSession:
     def test_improved_property(self, sample_rubric, passing_scores, failing_scores):
         session = EvaluationSession(
             session_id="test-123",
-            specialist_name="design_advisor",
+            specialist_name="design-advisor",
             evaluator_name="design",
             rubric=sample_rubric,
             original_request="Check readiness",
