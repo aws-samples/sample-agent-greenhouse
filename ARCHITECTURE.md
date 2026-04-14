@@ -30,17 +30,9 @@ src/platform_agent/
 ├── health.py            # Health check endpoint
 ├── bedrock_runtime.py   # Bedrock converse API wrapper
 │
-# Deprecated shims (kept for external consumers, emit DeprecationWarning):
-├── aidlc/               # → platform_agent.plato.aidlc
-├── control_plane/       # → platform_agent.plato.control_plane
-├── evaluator/           # → platform_agent.plato.evaluator
-├── orchestrator.py      # → platform_agent.plato.orchestrator
-├── skills/              # → platform_agent.plato.skills
-├── guardrails/          # → platform_agent.foundation.guardrails
-├── handoff/             # → platform_agent.foundation.handoff
-├── protocols/           # → platform_agent.foundation.protocols
-├── strands_foundation/  # → platform_agent.foundation
-└── _legacy_foundation.py  # deprecated, do not use
+# Deprecated files (kept for backward compatibility, emit DeprecationWarning):
+├── orchestrator.py        # → platform_agent.plato.orchestrator (no active imports)
+└── _legacy_foundation.py  # imported by foundation/__init__.py for backward compat; CLI + 7 test files depend on it
 ```
 
 ### Canonical import paths
@@ -228,10 +220,11 @@ response = agent("Hello!")
 
 ---
 
-## Deprecated Shims
+## Deprecated Files
 
-All paths under `platform_agent.{aidlc,control_plane,evaluator,orchestrator,skills,
-guardrails,handoff,protocols,strands_foundation}` are **backward-compatibility shims**.
-They re-export the canonical implementations and emit `DeprecationWarning` on import.
+Only two deprecated files remain in the package root:
 
-Do **not** use shim paths in new code. They will be removed in a future major version.
+- `orchestrator.py` — re-exports `platform_agent.plato.orchestrator` with `DeprecationWarning`. No active imports found; safe to delete.
+- `_legacy_foundation.py` — imported by `foundation/__init__.py` for backward compatibility. `cli.py` (2 call sites) and 7 test files still depend on it. Cannot be deleted without a migration.
+
+Do **not** use these paths in new code. They will be removed in a future major version.

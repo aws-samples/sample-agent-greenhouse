@@ -6,7 +6,7 @@ Agent Greenhouse is an opinionated framework for building specialist AI agents o
 
 Think of it as a greenhouse: the structure (foundation) provides the right environment, and each plant (domain agent) grows differently based on its **Domain Harness** configuration.
 
-[![Tests](https://img.shields.io/badge/tests-1900%2B%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-1868%2B%20passing-brightgreen)]()
 [![Python](https://img.shields.io/badge/python-3.11+-blue)]()
 [![License](https://img.shields.io/badge/license-MIT--0-lightgrey)]()
 [![Strands](https://img.shields.io/badge/built%20with-Strands%20Agents%20SDK-orange)](https://strandsagents.com/)
@@ -30,7 +30,7 @@ You write a Domain Harness (a frozen dataclass, serializable to YAML). The Found
 Agent Greenhouse
 │
 ├── 🏗️ Foundation Agent (generic, reusable)
-│   ├── Hook middleware (16 hooks: memory, telemetry, guardrails, OTEL, ...)
+│   ├── Hook middleware (16 hooks: 13 active, 3 deprecated)
 │   ├── Three-layer memory (session history + STM→LTM pipeline + workspace)
 │   ├── Soul/persona system
 │   ├── AgentSkills plugin (progressive loading via Strands SDK)
@@ -42,7 +42,7 @@ Agent Greenhouse
 └── 🌿 Domain Agents (your specialist agents)
     │
     └── 🏛️ Plato (included example — platform agent for Bedrock AgentCore)
-        ├── 16 skill packs (code review, scaffolding, AIDLC, compliance, ...)
+        ├── 22 skill packs (16 domain + 6 knowledge-only, code review, scaffolding, AIDLC, ...)
         ├── Evaluator agents (reflect-refine quality gates)
         ├── Orchestrator (multi-skill routing)
         └── Control plane (registry, lifecycle, task manager)
@@ -52,7 +52,7 @@ Agent Greenhouse
 
 This project started as **"Platform as Agent" (Plato)** — an agent that helps developers build, review, and deploy agent applications on Amazon Bedrock AgentCore. As it grew, we extracted the reusable infrastructure into Foundation Agent and kept Plato as the first (and most complete) domain example.
 
-Plato is included as `platform_agent.plato` and demonstrates everything the framework can do: 16 skill packs, AIDLC workflows, evaluators, control plane, and a full CLI.
+Plato is included as `platform_agent.plato` and demonstrates everything the framework can do: 22 skill packs, AIDLC workflows, evaluators, control plane, and a full CLI.
 
 ## Quick Start
 
@@ -78,6 +78,7 @@ def create_my_harness() -> DomainHarness:
     return DomainHarness(
         name="my_agent",
         description="A specialist agent for [your domain]",
+        skill_directories=["src/platform_agent/my_agent/skills"],
         skills=[
             SkillRef(name="my_skill", description="Does X", tools=["Read", "Bash"]),
         ],
@@ -118,6 +119,8 @@ Or define it as YAML:
 name: my_agent
 description: A specialist agent for [your domain]
 version: 1.0.0
+skill_directories:
+  - src/platform_agent/my_agent/skills
 skills:
   - name: my_skill
     description: Does X
@@ -208,26 +211,32 @@ Hooks fire on lifecycle events (`before_tool`, `after_tool`, `before_model`, `af
 
 ### Plato Domain
 
-The included reference implementation with 16 skill packs:
+The included reference implementation with 22 skill packs (16 domain + 6 knowledge-only):
 
 | Skill | Purpose |
 |-------|---------|
-| `design_advisor` | Platform readiness assessment (C1–C12 checklist) |
-| `code_review` | Security & quality review |
+| `design-advisor` | Platform readiness assessment (C1–C12 checklist) |
+| `code-review` | Security & quality review |
 | `scaffold` | Project skeleton generator |
-| `deployment_config` | IAM, Dockerfile, CDK, CI/CD generation |
-| `aidlc_inception` | Guided AIDLC inception workflow |
-| `spec_compliance` | Spec compliance verification |
-| `pr_review` | PR review with spec tracing |
-| `issue_creator` | Structured GitHub issue creation |
-| `test_case_generator` | Spec-to-test-case (1:1 AC→TC) |
+| `deployment-config` | IAM, Dockerfile, CDK, CI/CD generation |
+| `aidlc-inception` | Guided AIDLC inception workflow |
+| `spec-compliance` | Spec compliance verification |
+| `pr-review` | PR review with spec tracing |
+| `issue-creator` | Structured GitHub issue creation |
+| `test-case-generator` | Spec-to-test-case (1:1 AC→TC) |
 | `debug` | Troubleshooting and debugging |
-| `fleet_ops` | Fleet operations management |
+| `fleet-ops` | Fleet operations management |
 | `governance` | Compliance and governance checks |
 | `knowledge` | Knowledge base and reference lookup |
 | `monitoring` | Monitoring and alerting setup |
 | `observability` | Observability instrumentation |
 | `onboarding` | Developer onboarding guidance |
+| `architecture-knowledge` | Architecture patterns and decisions (knowledge-only) |
+| `cost-optimization` | Cost optimization guidance (knowledge-only) |
+| `migration-guide` | Migration strategies and patterns (knowledge-only) |
+| `policy-compiler` | Policy compilation reference (knowledge-only) |
+| `security-review` | Security review checklist (knowledge-only) |
+| `testing-strategy` | Testing strategy guidance (knowledge-only) |
 
 ## Project Structure
 
@@ -239,7 +248,7 @@ agent-greenhouse/
 │   │   ├── harness.py           # DomainHarness schema
 │   │   ├── memory.py            # Memory (STM→LTM pipeline + workspace)
 │   │   ├── soul.py              # Persona system
-│   │   ├── hooks/               # 16 lifecycle hooks
+│   │   ├── hooks/               # 16 lifecycle hooks (13 active, 3 deprecated)
 │   │   ├── guardrails/          # Cedar policy engine
 │   │   ├── handoff/             # Human escalation
 │   │   ├── protocols/           # A2A + MCP adapters
@@ -253,14 +262,14 @@ agent-greenhouse/
 │   │   ├── aidlc/               # AIDLC workflow engine
 │   │   ├── control_plane/       # Registry, lifecycle, tasks, policies
 │   │   ├── evaluator/           # Quality gate evaluators
-│   │   └── skills/              # 16 Plato-specific skill packs
+│   │   └── skills/              # 22 Plato skill packs (16 domain + 6 knowledge-only)
 │   │
 │   ├── cli.py                   # CLI entry point
 │   ├── memory.py                # Top-level memory store
 │   ├── health.py                # Health check endpoint
 │   └── bedrock_runtime.py       # Bedrock converse API wrapper
 │
-├── tests/                       # 1900+ tests
+├── tests/                       # 87 test files, 1868+ test functions
 ├── ARCHITECTURE.md              # Detailed architecture docs
 ├── docs/
 │   ├── ARCHITECTURE.md          # Full design document
@@ -341,10 +350,10 @@ For production deployment on AgentCore with Slack integration:
 ## Roadmap
 
 - [x] Foundation Agent + DomainHarness schema
-- [x] Hook middleware system (16 hooks)
+- [x] Hook middleware system (16 hooks: 13 active, 3 deprecated)
 - [x] Three-layer memory architecture
-- [x] Plato domain: 16 skill packs + evaluators + AIDLC
-- [x] Deprecation shims for backward compatibility
+- [x] Plato domain: 22 skill packs + evaluators + AIDLC
+- [x] Deprecation files for backward compatibility
 - [x] AgentCore Memory integration (4-strategy cross-session LTM)
 - [x] Score-based LTM token cap + active memory curation
 - [x] E2E memory verification suite
