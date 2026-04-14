@@ -210,15 +210,7 @@ src/platform_agent/
 │   ├── handler.py                 # SlackEventHandler + SlackConfig
 │   └── lambda_function.py         # Two-Lambda pattern (ack + worker)
 │
-├── strands_foundation/            # Deprecated shim → foundation/
-├── aidlc/                         # Deprecated shim → plato.aidlc
-├── control_plane/                 # Deprecated shim → plato.control_plane
-├── evaluator/                     # Deprecated shim → plato.evaluator
-├── skills/                        # Deprecated shim → plato.skills
-├── protocols/                     # Deprecated shim → foundation.protocols
-├── guardrails/                    # Deprecated shim → foundation.guardrails
-├── handoff/                       # Deprecated shim → foundation.handoff
-└── tools/                         # Deprecated shim → foundation.tools
+└── _legacy_foundation.py          # DEPRECATED — CLI + test dependencies only
 ```
 
 ### Canonical Import Paths
