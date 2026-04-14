@@ -323,4 +323,4 @@ Namespace-based isolation looks correct in architecture diagrams. But the actual
 
 ---
 
-*Last updated: 2026-04-12*
+*Last updated: 2026-04-14*
