@@ -4,8 +4,9 @@
 - **Name**: skill-architecture-refactor
 - **Branch**: `feat/skill-architecture-refactor`
 - **Repo**: `/Users/peiyaoli/Documents/projects/sample-agent-greenhouse`
-- **Status**: in-progress
+- **Status**: completed
 - **Started**: 2026-04-14T18:18:00+10:00
+- **Completed**: 2026-04-14T18:42:00+10:00
 - **Notify**: `#C0AM065RFS6` (thread `1776146887.898799`)
 
 ## Tasks
@@ -75,8 +76,8 @@
 
 ### Review Gate: Bro reviews all phases
 - **id**: review
-- **status**: in-progress
-- **started**: 2026-04-14T18:43:00+10:00
+- **status**: done
+- **completed**: 2026-04-14T18:42:00+10:00
 - **assigned_to**: didi
 - **depends_on**: [phase5]
 - **timeout**: 60
