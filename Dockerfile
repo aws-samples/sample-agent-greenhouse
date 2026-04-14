@@ -31,7 +31,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 EXPOSE 8080
 
-# Copy workspace files (personality, skills)
+# Copy workspace files (personality — soul files, policies, examples)
+# Skills are now in plato/skills/ domain directory, loaded via harness.
 COPY workspace/ workspace/
 
 # Entry point: Use ADOT auto-instrumentation to export OTEL spans to AgentCore/CloudWatch

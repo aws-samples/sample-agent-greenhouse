@@ -12,7 +12,8 @@
 
 ### Phase 1: DomainHarness adds `skill_directories`
 - **id**: phase1
-- **status**: pending
+- **status**: done
+- **completed**: 2026-04-14T18:25:00+10:00
 - **assigned_to**: gege
 - **timeout**: 60
 - **max_retries**: 1

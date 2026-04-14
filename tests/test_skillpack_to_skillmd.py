@@ -92,7 +92,7 @@ class TestDomainSkillsDiscovery:
 
     def test_domain_skills_dir_has_skill_md_files(self):
         found = list(DOMAIN_SKILLS_DIR.glob("*/SKILL.md"))
-        assert len(found) == 16, f"Expected 16 SKILL.md files, found {len(found)}"
+        assert len(found) == 22, f"Expected 22 SKILL.md files (16 domain + 6 knowledge), found {len(found)}"
 
     def test_agent_skills_plugin_with_domain_dir(self):
         try:
