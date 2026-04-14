@@ -219,26 +219,29 @@ class FoundationAgent:
         # Strands AgentSkills plugin — preferred over SkillRegistry when available.
         # The plugin handles SKILL.md discovery, system-prompt injection, and the
         # skills() tool automatically.
+        #
+        # Skill source priority:
+        #   1. harness.skill_directories (domain-driven — single source of truth)
+        #   2. Fallback: workspace/skills/ (backward compat when no harness)
         self._skills_plugin = None
-        if _AgentSkills is not None and workspace_dir:
+        if _AgentSkills is not None:
             from pathlib import Path
             skill_sources: list[str] = []
 
-            # Workspace skills (user-defined)
-            ws_skills = Path(workspace_dir) / "skills"
-            if ws_skills.is_dir():
-                skill_sources.append(str(ws_skills))
-
-            # Domain skills from SkillPack SKILL.md files (Phase 2)
-            try:
-                import platform_agent.plato.skills as _ps
-                domain_skills = Path(_ps.__file__).parent
-                # Only add if at least one SKILL.md exists in subdirs
-                if any(domain_skills.glob("*/SKILL.md")):
-                    skill_sources.append(str(domain_skills))
-                    logger.info("Domain skills discovered (%s)", domain_skills)
-            except ImportError:
-                pass  # plato not installed — skip domain skills
+            if harness and harness.skill_directories:
+                # Domain harness declares where to find skills
+                skill_sources = list(harness.skill_directories)
+                logger.info(
+                    "Skill directories from harness: %s", skill_sources
+                )
+            elif workspace_dir:
+                # Fallback: no harness — scan workspace/skills/ for compat
+                ws_skills = Path(workspace_dir) / "skills"
+                if ws_skills.is_dir():
+                    skill_sources.append(str(ws_skills))
+                    logger.info(
+                        "Fallback: workspace skills at %s", ws_skills
+                    )
 
             if skill_sources:
                 self._skills_plugin = _AgentSkills(skills=skill_sources)

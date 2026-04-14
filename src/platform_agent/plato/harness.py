@@ -1,5 +1,7 @@
 """Plato domain harness factory — returns config matching plato_harness.yaml."""
 
+from pathlib import Path
+
 from platform_agent.foundation.harness import (
     DomainHarness,
     EvalRule,
@@ -13,6 +15,10 @@ from platform_agent.foundation.harness import (
 
 def create_plato_harness() -> DomainHarness:
     """Return the complete Plato domain harness matching plato_harness.yaml."""
+    # Domain skills directory — resolved relative to plato/skills/ package
+    import platform_agent.plato.skills as _ps
+    plato_skills_dir = str(Path(_ps.__file__).parent)
+
     return DomainHarness(
         name="plato",
         description=(
@@ -20,6 +26,7 @@ def create_plato_harness() -> DomainHarness:
             " \u2014 helps developers build, review, and deploy agent applications"
         ),
         version="1.0.0",
+        skill_directories=[plato_skills_dir],
         skills=[
             SkillRef(
                 name="aidlc_inception",

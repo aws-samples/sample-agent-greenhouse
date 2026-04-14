@@ -132,7 +132,12 @@ class TestFoundationAgentDomainSkills:
         assert agent._skills_plugin is not None
 
     def test_plugin_created_with_multiple_sources(self, tmp_path):
-        """Plugin should receive both workspace and domain skill directories."""
+        """Without harness, plugin uses workspace/skills/ fallback only.
+
+        With the harness-driven elif pattern, workspace/skills/ is the
+        fallback when no harness is provided. Domain skills come from
+        harness.skill_directories.
+        """
         from platform_agent.foundation.agent import FoundationStrandsAgent
 
         ws_skills = tmp_path / "skills" / "ws_skill"
@@ -145,12 +150,10 @@ class TestFoundationAgentDomainSkills:
             import pytest
             pytest.skip("AgentSkills plugin not available")
 
-        # The plugin should have been initialized with a list of directories
-        # (FakeAgentSkills stores the 'skills' arg)
+        # Without harness, only workspace/skills/ is scanned (elif fallback)
         skills_arg = agent._skills_plugin.skills
         if isinstance(skills_arg, list):
-            assert len(skills_arg) >= 2, "Expected both workspace and domain skill dirs"
+            assert len(skills_arg) >= 1, "Expected workspace skill dir"
             assert str(tmp_path / "skills") in skills_arg
         else:
-            # Single string — at minimum workspace dir should be present
             assert str(tmp_path / "skills") in str(skills_arg)

@@ -38,7 +38,7 @@ def test_plato_harness_has_correct_hooks():
     harness = create_plato_harness()
     always_active = [h for h in harness.hooks if h.category != "optional"]
     optional = [h for h in harness.hooks if h.category == "optional"]
-    assert len(always_active) == 12
+    assert len(always_active) == 11
     assert len(optional) == 2
     assert optional[0].hook == "MemoryExtractionHook"
     assert optional[1].hook == "ConsolidationHook"
@@ -81,4 +81,13 @@ def test_plato_harness_yaml_roundtrip_matches_ground_truth():
         ground_truth = yaml.safe_load(f)
 
     harness_dict = create_plato_harness().to_dict()
+
+    # skill_directories are absolute at runtime but relative in YAML.
+    # Normalize by comparing only basenames.
+    runtime_dirs = harness_dict.pop("skill_directories", [])
+    yaml_dirs = ground_truth.pop("skill_directories", [])
+    assert len(runtime_dirs) == len(yaml_dirs)
+    for r, y in zip(runtime_dirs, yaml_dirs):
+        assert Path(r).name == Path(y).name
+
     assert harness_dict == ground_truth

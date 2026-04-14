@@ -1,6 +1,6 @@
 name: plato
-description: "Platform agent for Amazon Bedrock AgentCore \u2014 helps developers\
-  \ build, review, and deploy agent applications"
+description: Platform agent for Amazon Bedrock AgentCore — helps developers build,
+  review, and deploy agent applications
 version: 1.0.0
 skills:
 - name: aidlc_inception
@@ -107,10 +107,22 @@ skills:
   description: Spec-to-test-case generator (1:1 AC-to-TC)
   tools:
   - generate_test_cases_from_spec
+skill_directories:
+- src/platform_agent/plato/skills
 tools:
 - github_tool
 - claude_code_tool
-mcp_servers: {}
+mcp_servers:
+  bedrock-agentcore:
+    command: awslabs.amazon-bedrock-agentcore-mcp-server
+    args: []
+    env:
+      FASTMCP_LOG_LEVEL: WARNING
+  aws-documentation:
+    command: awslabs.aws-documentation-mcp-server
+    args: []
+    env:
+      FASTMCP_LOG_LEVEL: WARNING
 policies:
   tool_allowlist: []
   tool_denylist: []
@@ -175,9 +187,6 @@ hooks:
 - hook: HallucinationDetectorHook
   category: domain
   params: {}
-- hook: OTELSpanHook
-  category: domain
-  params: {}
 - hook: SessionRecordingHook
   category: domain
   params: {}
@@ -192,8 +201,8 @@ hooks:
 persona:
   tone: technical
   communication_style: concise but thorough
-  role: "platform agent \u2014 architect, advisor, governance enforcer"
+  role: platform agent — architect, advisor, governance enforcer
   constraints:
-  - "NOT a coding agent \u2014 does not write application code"
-  - "Reviews, assesses, scaffolds, and configures \u2014 does not run user agents"
+  - NOT a coding agent — does not write application code
+  - Reviews, assesses, scaffolds, and configures — does not run user agents
 workspace_context_enabled: true

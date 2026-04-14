@@ -181,6 +181,7 @@ class DomainHarness:
     description: str = ""
     version: str = "0.1.0"
     skills: list[SkillRef] = field(default_factory=list)
+    skill_directories: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
     mcp_servers: dict[str, Any] = field(default_factory=dict)
     policies: PolicyConfig = field(default_factory=PolicyConfig)
@@ -200,6 +201,7 @@ class DomainHarness:
             "description": self.description,
             "version": self.version,
             "skills": [s.to_dict() for s in self.skills],
+            "skill_directories": list(self.skill_directories),
             "tools": list(self.tools),
             "mcp_servers": dict(self.mcp_servers),
             "policies": self.policies.to_dict(),
@@ -220,6 +222,7 @@ class DomainHarness:
             description=data.get("description", ""),
             version=data.get("version", "0.1.0"),
             skills=[SkillRef.from_dict(s) for s in data.get("skills", [])],
+            skill_directories=data.get("skill_directories", []),
             tools=data.get("tools", []),
             mcp_servers=data.get("mcp_servers", {}),
             policies=PolicyConfig.from_dict(data.get("policies", {})),
