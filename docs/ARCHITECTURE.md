@@ -1126,7 +1126,7 @@ tests/
 ├── test_skill_system.py          # Skill registry
 ├── test_slack_integration.py     # Slack handler
 ├── test_soul_system.py           # Soul file loading
-├── ... (77 files total)
+├── ... (87 files total)
 └── test_tool_registration.py     # Tool registration
 ```
 
@@ -1134,8 +1134,8 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Test files | 77 |
-| Test functions | 1,734+ |
+| Test files | 87 |
+| Test functions | 1,868+ |
 | Total test lines | ~25,550 |
 
 ### Configuration — `pyproject.toml`
