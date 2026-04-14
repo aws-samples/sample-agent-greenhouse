@@ -152,10 +152,10 @@ class TestSkillRegistration:
         assert skill.name == "spec_compliance"
 
     def test_skill_has_system_prompt(self) -> None:
-        """Skill has a non-empty system prompt."""
+        """Skill has system_prompt_extension cleared (SKILL.md is sole source)."""
         skill = SpecComplianceSkill()
-        assert len(skill.system_prompt_extension) > 0
-        assert "Compliance" in skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        assert skill.system_prompt_extension == ""
 
     def test_skill_tools_list(self) -> None:
         """Skill references both compliance tool names."""

@@ -19,7 +19,7 @@ from typing import Any, Callable
 
 from platform_agent.foundation.soul import SoulSystem
 from platform_agent.foundation.memory import WorkspaceMemory
-from platform_agent.foundation.skills.registry import SkillRegistry
+from platform_agent.foundation.skills.registry import SkillRegistry  # noqa: F401 — kept for backward compat import path
 
 # Strands AgentSkills plugin — replaces SkillRegistry for prompt injection.
 # Import lazily with fallback for backward compatibility.
@@ -212,9 +212,9 @@ class FoundationAgent:
             self.workspace_memory = WorkspaceMemory(workspace_dir=workspace_dir)
 
         # Skill registry (kept for backward compat; deprecated when AgentSkills available)
+        # SkillRegistry — deprecated, kept for backward compatibility.
+        # When AgentSkills plugin is active, SkillRegistry is not used.
         self.skill_registry = SkillRegistry(workspace_dir=workspace_dir)
-        if workspace_dir:
-            self.skill_registry.discover()
 
         # Strands AgentSkills plugin — preferred over SkillRegistry when available.
         # The plugin handles SKILL.md discovery, system-prompt injection, and the

@@ -5,7 +5,7 @@ available. Uses Bedrock's converse API with tool definitions for file
 operations (Read, Glob, Grep) so the agent can actually inspect codebases.
 
 Environment:
-    PLATO_MODEL: Model ID (default: us.anthropic.claude-sonnet-4-20250514-v1:0)
+    PLATO_MODEL: Model ID (default: global.anthropic.claude-sonnet-4-6)
     PLATO_REGION: AWS region (default: AWS_REGION env or us-west-2)
     PLATO_MAX_TOKENS: Max response tokens (default: 4096)
     AWS_PROFILE / AWS_ACCESS_KEY_ID: Standard AWS auth
@@ -23,7 +23,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+DEFAULT_MODEL = "global.anthropic.claude-sonnet-4-6"
 DEFAULT_REGION = os.environ.get("AWS_REGION", "us-west-2")
 DEFAULT_MAX_TOKENS = 4096
 MAX_TOOL_ROUNDS = 20

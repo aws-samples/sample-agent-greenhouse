@@ -165,10 +165,10 @@ class TestSkillRegistration:
         assert skill.name == "pr_review"
 
     def test_skill_has_system_prompt(self) -> None:
-        """Skill has a non-empty system prompt."""
+        """Skill has system_prompt_extension cleared (SKILL.md is sole source)."""
         skill = PRReviewSkill()
-        assert len(skill.system_prompt_extension) > 0
-        assert "Review" in skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        assert skill.system_prompt_extension == ""
 
     def test_skill_tools_list(self) -> None:
         """Skill references the review tool."""

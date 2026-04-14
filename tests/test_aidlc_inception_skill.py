@@ -157,10 +157,10 @@ class TestSkillRegistration:
         assert "AIDLC" in skill.description
 
     def test_skill_has_system_prompt(self) -> None:
-        """Skill has a system prompt extension."""
+        """Skill has system_prompt_extension cleared (SKILL.md is sole source)."""
         skill = AIDLCInceptionSkill()
-        assert len(skill.system_prompt_extension) > 0
-        assert "Inception" in skill.system_prompt_extension
+        # system_prompt_extension is now empty — SKILL.md is the sole prompt source
+        assert skill.system_prompt_extension == ""
 
     def test_skill_tools_list(self) -> None:
         """Skill references all AIDLC tool names."""

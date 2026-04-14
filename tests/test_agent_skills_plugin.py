@@ -152,6 +152,8 @@ class TestPromptInjectionSkipped:
             agent = FoundationStrandsAgent(workspace_dir=str(tmp_path))
             assert agent._skills_plugin is None
 
+            # Explicitly discover since auto-discover is no longer done
+            agent.skill_registry.discover()
             prompt = agent.build_system_prompt()
             assert "Available Skills" in prompt
             assert "my_skill" in prompt
@@ -165,7 +167,11 @@ class TestPromptInjectionSkipped:
 
 
 class TestSkillRegistryBackwardCompat:
-    """Test that SkillRegistry still works alongside the plugin."""
+    """Test that SkillRegistry still works when explicitly used (backward compat).
+
+    Note: SkillRegistry.discover() is no longer called eagerly by FoundationAgent.
+    Consumers must call it explicitly if they need the registry.
+    """
 
     def test_skill_registry_still_populated(self, tmp_path):
         skills_dir = tmp_path / "skills" / "my_skill"
@@ -174,8 +180,8 @@ class TestSkillRegistryBackwardCompat:
             "---\nname: my_skill\ndescription: A skill\n---\nBody."
         )
         agent = FoundationStrandsAgent(workspace_dir=str(tmp_path))
-        # Both plugin and registry should exist
-        assert agent._skills_plugin is not None
+        # Explicitly discover (no longer auto-called)
+        agent.skill_registry.discover()
         skills = agent.skill_registry.list_skills()
         assert len(skills) == 1
         assert skills[0].name == "my_skill"
@@ -187,6 +193,8 @@ class TestSkillRegistryBackwardCompat:
             "---\nname: my_skill\ndescription: A skill\n---\nFull body content."
         )
         agent = FoundationStrandsAgent(workspace_dir=str(tmp_path))
+        # Explicitly discover (no longer auto-called)
+        agent.skill_registry.discover()
         skill = agent.skill_registry.get_skill("my_skill")
         assert skill is not None
         assert "Full body content" in skill.full_content
