@@ -26,7 +26,8 @@
 
 ### Phase 2: Merge workspace/skills/ into plato/skills/
 - **id**: phase2
-- **status**: pending
+- **status**: done
+- **completed**: 2026-04-14T18:28:00+10:00
 - **assigned_to**: gege
 - **depends_on**: [phase1]
 - **timeout**: 60
@@ -40,7 +41,8 @@
 
 ### Phase 3: Clean SkillPack hardcoded prompts
 - **id**: phase3
-- **status**: pending
+- **status**: done
+- **completed**: 2026-04-14T18:32:00+10:00
 - **assigned_to**: gege
 - **depends_on**: [phase2]
 - **timeout**: 90
@@ -53,7 +55,8 @@
 
 ### Phase 5: Dead code cleanup
 - **id**: phase5
-- **status**: pending
+- **status**: done
+- **completed**: 2026-04-14T18:42:00+10:00
 - **assigned_to**: gege
 - **depends_on**: [phase3]
 - **timeout**: 120
@@ -72,7 +75,8 @@
 
 ### Review Gate: Bro reviews all phases
 - **id**: review
-- **status**: pending
+- **status**: in-progress
+- **started**: 2026-04-14T18:43:00+10:00
 - **assigned_to**: didi
 - **depends_on**: [phase5]
 - **timeout**: 60

@@ -69,21 +69,24 @@ class TestSkillMdContentMatchesExtension:
     """SKILL.md body should contain the same content as system_prompt_extension."""
 
     def test_extension_content_in_skill_md(self):
+        """Each domain skill's SKILL.md should have non-empty body content.
+
+        Since Phase 3, SKILL.md is the sole prompt source (system_prompt_extension
+        is empty). This test verifies every SKILL.md has meaningful content.
+        """
         discover_skills()
         for skill_name in EXPECTED_SKILLS:
-            cls = get_skill(skill_name)
-            sk = load_skill(cls)
-            if not sk.system_prompt_extension:
-                continue
+            skill_md_path = DOMAIN_SKILLS_DIR / skill_name / "SKILL.md"
+            assert skill_md_path.exists(), f"{skill_name}: SKILL.md missing"
 
-            skill_md = (DOMAIN_SKILLS_DIR / skill_name / "SKILL.md").read_text()
+            skill_md = skill_md_path.read_text()
             # Extract body (after frontmatter)
             parts = skill_md.split("---", 2)
             body = parts[2].strip() if len(parts) >= 3 else ""
 
-            # The body should match the extension (stripped)
-            assert body == sk.system_prompt_extension.strip(), (
-                f"{skill_name}: SKILL.md body doesn't match system_prompt_extension"
+            assert len(body) > 10, (
+                f"{skill_name}: SKILL.md body is too short ({len(body)} chars) "
+                f"— SKILL.md is the sole prompt source and must have meaningful content"
             )
 
 
