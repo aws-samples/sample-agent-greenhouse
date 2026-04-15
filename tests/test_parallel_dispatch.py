@@ -9,7 +9,7 @@ import pytest
 
 from platform_agent.foundation.parallel_dispatch import (
     ParallelDispatcher,
-    _execute_task,
+    _default_executor,
     _run_task,
 )
 
@@ -55,31 +55,50 @@ class TestParallelDispatchMultipleTasks:
     @pytest.mark.asyncio
     async def test_tasks_run_concurrently(self):
         """Verify that tasks actually run in parallel, not sequentially."""
-        import platform_agent.foundation.parallel_dispatch as pd
 
-        original_execute = pd._execute_task
-
-        async def slow_execute(task):
+        async def slow_executor(task):
             await asyncio.sleep(0.1)
-            return await original_execute(task)
+            return await _default_executor(task)
 
-        pd._execute_task = slow_execute
-        try:
-            dispatcher = ParallelDispatcher()
-            tasks = [
-                {"name": f"task-{i}", "prompt": f"p-{i}"}
-                for i in range(5)
-            ]
-            start = time.monotonic()
-            results = await dispatcher.dispatch_parallel(tasks, max_concurrency=5)
-            elapsed = time.monotonic() - start
+        dispatcher = ParallelDispatcher(executor=slow_executor)
+        tasks = [
+            {"name": f"task-{i}", "prompt": f"p-{i}"}
+            for i in range(5)
+        ]
+        start = time.monotonic()
+        results = await dispatcher.dispatch_parallel(tasks, max_concurrency=5)
+        elapsed = time.monotonic() - start
 
-            assert len(results) == 5
-            assert all(r["success"] for r in results)
-            # If sequential, would take ~0.5s. Parallel should be ~0.1s.
-            assert elapsed < 0.4
-        finally:
-            pd._execute_task = original_execute
+        assert len(results) == 5
+        assert all(r["success"] for r in results)
+        # If sequential, would take ~0.5s. Parallel should be ~0.1s.
+        assert elapsed < 0.4
+
+    @pytest.mark.asyncio
+    async def test_custom_executor_via_di(self):
+        """Verify that a custom executor injected via __init__ is used."""
+
+        async def custom_executor(task):
+            return f"custom: {task.get('prompt', '')}"
+
+        dispatcher = ParallelDispatcher(executor=custom_executor)
+        results = await dispatcher.dispatch_parallel(
+            [{"name": "di-test", "prompt": "hello"}],
+        )
+        assert results[0]["output"] == "custom: hello"
+
+    @pytest.mark.asyncio
+    async def test_sync_executor_via_di(self):
+        """Verify that a sync (non-async) executor also works."""
+
+        def sync_executor(task):
+            return f"sync: {task.get('prompt', '')}"
+
+        dispatcher = ParallelDispatcher(executor=sync_executor)
+        results = await dispatcher.dispatch_parallel(
+            [{"name": "sync-di", "prompt": "world"}],
+        )
+        assert results[0]["output"] == "sync: world"
 
 
 class TestMaxConcurrency:
@@ -88,14 +107,11 @@ class TestMaxConcurrency:
     @pytest.mark.asyncio
     async def test_concurrency_limited(self):
         """Verify semaphore limits concurrent execution."""
-        import platform_agent.foundation.parallel_dispatch as pd
-
-        original_execute = pd._execute_task
         concurrent_count = 0
         max_observed = 0
         lock = asyncio.Lock()
 
-        async def tracking_execute(task):
+        async def tracking_executor(task):
             nonlocal concurrent_count, max_observed
             async with lock:
                 concurrent_count += 1
@@ -104,22 +120,18 @@ class TestMaxConcurrency:
             await asyncio.sleep(0.05)
             async with lock:
                 concurrent_count -= 1
-            return await original_execute(task)
+            return await _default_executor(task)
 
-        pd._execute_task = tracking_execute
-        try:
-            dispatcher = ParallelDispatcher()
-            tasks = [
-                {"name": f"task-{i}", "prompt": f"p-{i}"}
-                for i in range(6)
-            ]
-            results = await dispatcher.dispatch_parallel(tasks, max_concurrency=2)
+        dispatcher = ParallelDispatcher(executor=tracking_executor)
+        tasks = [
+            {"name": f"task-{i}", "prompt": f"p-{i}"}
+            for i in range(6)
+        ]
+        results = await dispatcher.dispatch_parallel(tasks, max_concurrency=2)
 
-            assert len(results) == 6
-            assert all(r["success"] for r in results)
-            assert max_observed <= 2
-        finally:
-            pd._execute_task = original_execute
+        assert len(results) == 6
+        assert all(r["success"] for r in results)
+        assert max_observed <= 2
 
 
 class TestTaskFailure:
@@ -127,32 +139,25 @@ class TestTaskFailure:
 
     @pytest.mark.asyncio
     async def test_failing_task_captured(self):
-        import platform_agent.foundation.parallel_dispatch as pd
 
-        original_execute = pd._execute_task
-
-        async def failing_execute(task):
+        async def failing_executor(task):
             if task.get("name") == "bad-task":
                 raise ValueError("Something went wrong")
-            return await original_execute(task)
+            return await _default_executor(task)
 
-        pd._execute_task = failing_execute
-        try:
-            dispatcher = ParallelDispatcher()
-            tasks = [
-                {"name": "good-task", "prompt": "ok"},
-                {"name": "bad-task", "prompt": "fail"},
-                {"name": "another-good", "prompt": "ok2"},
-            ]
-            results = await dispatcher.dispatch_parallel(tasks)
+        dispatcher = ParallelDispatcher(executor=failing_executor)
+        tasks = [
+            {"name": "good-task", "prompt": "ok"},
+            {"name": "bad-task", "prompt": "fail"},
+            {"name": "another-good", "prompt": "ok2"},
+        ]
+        results = await dispatcher.dispatch_parallel(tasks)
 
-            by_name = {r["name"]: r for r in results}
-            assert by_name["good-task"]["success"] is True
-            assert by_name["another-good"]["success"] is True
-            assert by_name["bad-task"]["success"] is False
-            assert "Something went wrong" in by_name["bad-task"]["error"]
-        finally:
-            pd._execute_task = original_execute
+        by_name = {r["name"]: r for r in results}
+        assert by_name["good-task"]["success"] is True
+        assert by_name["another-good"]["success"] is True
+        assert by_name["bad-task"]["success"] is False
+        assert "Something went wrong" in by_name["bad-task"]["error"]
 
 
 class TestTimeoutHandling:
@@ -160,30 +165,23 @@ class TestTimeoutHandling:
 
     @pytest.mark.asyncio
     async def test_timeout_marks_task_failed(self):
-        import platform_agent.foundation.parallel_dispatch as pd
 
-        original_execute = pd._execute_task
-
-        async def slow_execute(task):
+        async def slow_executor(task):
             if task.get("name") == "slow-task":
                 await asyncio.sleep(10)
-            return await original_execute(task)
+            return await _default_executor(task)
 
-        pd._execute_task = slow_execute
-        try:
-            dispatcher = ParallelDispatcher()
-            tasks = [
-                {"name": "fast-task", "prompt": "quick", "timeout_seconds": 5},
-                {"name": "slow-task", "prompt": "slow", "timeout_seconds": 0.2},
-            ]
-            results = await dispatcher.dispatch_parallel(tasks)
+        dispatcher = ParallelDispatcher(executor=slow_executor)
+        tasks = [
+            {"name": "fast-task", "prompt": "quick", "timeout_seconds": 5},
+            {"name": "slow-task", "prompt": "slow", "timeout_seconds": 0.2},
+        ]
+        results = await dispatcher.dispatch_parallel(tasks)
 
-            by_name = {r["name"]: r for r in results}
-            assert by_name["fast-task"]["success"] is True
-            assert by_name["slow-task"]["success"] is False
-            assert "timed out" in by_name["slow-task"]["error"]
-        finally:
-            pd._execute_task = original_execute
+        by_name = {r["name"]: r for r in results}
+        assert by_name["fast-task"]["success"] is True
+        assert by_name["slow-task"]["success"] is False
+        assert "timed out" in by_name["slow-task"]["error"]
 
 
 class TestSyncWrapper:

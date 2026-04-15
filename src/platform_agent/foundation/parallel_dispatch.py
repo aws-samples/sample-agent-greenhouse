@@ -10,17 +10,37 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Type alias for the task executor callable.
+TaskExecutor = Callable[[dict[str, Any]], Any]
 
 # Default timeout per task in seconds.
 _DEFAULT_TIMEOUT_SECONDS = 120
 
 
+async def _default_executor(task: dict[str, Any]) -> Any:
+    """Default task executor that echoes the prompt.
+
+    Useful for testing the dispatch machinery without a real sub-agent backend.
+
+    Args:
+        task: Task dict with keys: name, prompt, tools (optional).
+
+    Returns:
+        A string echoing the prompt.
+    """
+    prompt = task.get("prompt", "")
+    return f"completed: {prompt}"
+
+
 async def _run_task(
     task: dict[str, Any],
     semaphore: asyncio.Semaphore,
+    executor: TaskExecutor,
 ) -> dict[str, Any]:
     """Execute a single task with semaphore-based concurrency control.
 
@@ -43,10 +63,12 @@ async def _run_task(
     start = time.monotonic()
     async with semaphore:
         try:
-            output = await asyncio.wait_for(
-                _execute_task(task),
-                timeout=timeout,
-            )
+            result = executor(task)
+            # Support both sync and async executors.
+            if asyncio.iscoroutine(result):
+                output = await asyncio.wait_for(result, timeout=timeout)
+            else:
+                output = result
             duration = time.monotonic() - start
             return {
                 "name": name,
@@ -76,40 +98,27 @@ async def _run_task(
             }
 
 
-async def _execute_task(task: dict[str, Any]) -> Any:
-    """Execute the task's prompt with isolated context.
-
-    This is the core execution function that processes the task prompt.
-    Each invocation gets its own message history for context isolation.
-
-    Override or monkey-patch this function to integrate with a real
-    sub-agent backend. The default implementation returns the prompt
-    as output (useful for testing the dispatch machinery).
-
-    Args:
-        task: Task dict with keys: name, prompt, tools (optional).
-
-    Returns:
-        Task output (string or structured data).
-    """
-    # Default implementation: echo the prompt.
-    # In production, this would invoke a sub-agent (e.g., Strands Agent)
-    # with its own message history for context isolation.
-    prompt = task.get("prompt", "")
-    return f"completed: {prompt}"
-
-
 class ParallelDispatcher:
     """Dispatches multiple sub-tasks concurrently with controlled concurrency.
 
+    Args:
+        executor: An async or sync callable that takes a task dict and returns
+            the task output. Defaults to an echo executor useful for testing.
+
     Usage::
 
-        dispatcher = ParallelDispatcher()
+        async def my_executor(task: dict) -> str:
+            return await invoke_sub_agent(task["prompt"])
+
+        dispatcher = ParallelDispatcher(executor=my_executor)
         results = await dispatcher.dispatch_parallel([
             {"name": "task-a", "prompt": "Summarize X"},
             {"name": "task-b", "prompt": "Generate Y", "timeout_seconds": 60},
         ], max_concurrency=3)
     """
+
+    def __init__(self, executor: TaskExecutor | None = None) -> None:
+        self._executor = executor or _default_executor
 
     async def dispatch_parallel(
         self,
@@ -131,7 +140,9 @@ class ParallelDispatcher:
             return []
 
         semaphore = asyncio.Semaphore(max_concurrency)
-        coroutines = [_run_task(task, semaphore) for task in tasks]
+        coroutines = [
+            _run_task(task, semaphore, self._executor) for task in tasks
+        ]
         results = await asyncio.gather(*coroutines, return_exceptions=False)
         return list(results)
 

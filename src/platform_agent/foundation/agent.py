@@ -36,7 +36,6 @@ from platform_agent.foundation.hooks.telemetry_hook import TelemetryHook
 from platform_agent.foundation.hooks.model_metrics_hook import ModelMetricsHook
 from platform_agent.foundation.hooks.tool_policy_hook import ToolPolicyHook
 from platform_agent.foundation.hooks.approval_hook import ApprovalHook
-from platform_agent.foundation.hooks.compaction_hook import CompactionHook
 from platform_agent.foundation.hooks.memory_extraction_hook import MemoryExtractionHook
 from platform_agent.foundation.hooks.consolidation_hook import ConsolidationHook
 from platform_agent.foundation.hooks.business_metrics_hook import BusinessMetricsHook
@@ -141,6 +140,16 @@ class FoundationAgent:
         actor_id: str | None = None,
     ) -> None:
         self.harness = harness
+
+        # Validate harness configuration at startup (fail-fast).
+        if harness is not None and hasattr(harness, "validate"):
+            errors = harness.validate()
+            if errors:
+                error_msg = "Harness validation failed:\n" + "\n".join(
+                    f"  - {e}" for e in errors
+                )
+                raise ValueError(error_msg)
+
         self.workspace_dir = workspace_dir
         self.model_id = model_id
         self._extra_tools = extra_tools or []
@@ -424,10 +433,6 @@ class FoundationAgent:
                     timeout_seconds=300,
                 )
                 return ApprovalHook(config=default_config)
-        if hook_name == "CompactionHook":
-            # CompactionHook is deprecated — FileSessionManager + Strands
-            # context-window management replace custom compaction.
-            return CompactionHook()
         if hook_name == "BusinessMetricsHook":
             hook = BusinessMetricsHook()
             if session_id:
