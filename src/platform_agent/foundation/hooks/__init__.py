@@ -1,7 +1,7 @@
 """Hook middleware for the Strands Foundation Agent.
 
 Provides HookProvider implementations for soul system, memory, guardrails,
-audit logging, tool policy enforcement, compaction, telemetry, model metrics,
+audit logging, tool policy enforcement, telemetry, model metrics,
 memory extraction, and memory consolidation.
 
 Note: MemorySyncHook and seed script were removed in the memory simplification
@@ -21,7 +21,6 @@ from platform_agent.foundation.hooks.audit_hook import AuditHook
 from platform_agent.foundation.hooks.telemetry_hook import TelemetryHook
 from platform_agent.foundation.hooks.model_metrics_hook import ModelMetricsHook
 from platform_agent.foundation.hooks.tool_policy_hook import ToolPolicyHook
-from platform_agent.foundation.hooks.compaction_hook import CompactionHook
 from platform_agent.foundation.hooks.memory_extraction_hook import MemoryExtractionHook
 from platform_agent.foundation.hooks.consolidation_hook import ConsolidationHook
 from platform_agent.foundation.hooks.aidlc_telemetry_hook import AIDLCTelemetryHook
@@ -42,7 +41,6 @@ __all__ = [
     "ToolPolicyHook",
     "ApprovalHook",
     "ApprovalConfig",
-    "CompactionHook",
     "MemoryExtractionHook",
     "ConsolidationHook",
     "AIDLCTelemetryHook",

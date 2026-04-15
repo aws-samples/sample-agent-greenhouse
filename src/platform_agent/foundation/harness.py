@@ -2,11 +2,34 @@
 
 from __future__ import annotations
 
+import importlib
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
+
+# Known hook names that the Foundation Agent can instantiate.
+_KNOWN_HOOKS: frozenset[str] = frozenset({
+    "AuditHook",
+    "TelemetryHook",
+    "GuardrailsHook",
+    "SoulSystemHook",
+    "MemoryHook",
+    "ModelMetricsHook",
+    "ToolPolicyHook",
+    "ApprovalHook",
+    "BusinessMetricsHook",
+    "HallucinationDetectorHook",
+    "OTELSpanHook",
+    "SessionRecordingHook",
+    "MemoryExtractionHook",
+    "ConsolidationHook",
+    "AIDLCTelemetryHook",
+})
 
 
 @dataclass(frozen=True)
@@ -194,6 +217,74 @@ class DomainHarness:
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("DomainHarness.name must be a non-empty string")
+
+    def validate(self) -> list[str]:
+        """Validate harness configuration and return a list of errors.
+
+        Hard errors (returned in the list and will block agent startup):
+        - Unknown hook names that cannot be instantiated.
+        - ``enabled_by`` dotted paths that do not resolve.
+        - Duplicate hook registrations.
+
+        Soft warnings (logged but NOT included in the returned list):
+        - Memory namespace templates missing ``{actorId}``.
+        - Skill directories that don't exist (may be created at runtime).
+
+        Returns:
+            A list of human-readable error strings. Empty list means valid.
+        """
+        errors: list[str] = []
+
+        # --- Hook validation (hard errors) ---
+        seen_hooks: set[str] = set()
+        for hc in self.hooks:
+            # Check for known hook names
+            if hc.hook not in _KNOWN_HOOKS:
+                errors.append(
+                    f"Hook '{hc.hook}' is not a known hook. "
+                    f"Known hooks: {', '.join(sorted(_KNOWN_HOOKS))}"
+                )
+
+            # Check for duplicates
+            if hc.hook in seen_hooks:
+                errors.append(f"Duplicate hook registration: '{hc.hook}'")
+            seen_hooks.add(hc.hook)
+
+            # Validate enabled_by dotted paths
+            if hc.enabled_by:
+                obj: Any = self
+                for part in hc.enabled_by.split("."):
+                    obj = getattr(obj, part, None)
+                    if obj is None:
+                        errors.append(
+                            f"Hook '{hc.hook}' has enabled_by='{hc.enabled_by}' "
+                            f"but path segment '{part}' does not resolve on DomainHarness"
+                        )
+                        break
+
+        # --- Memory namespace validation (soft warning) ---
+        ns = self.memory_config.namespace_template
+        if ns and "{actorId}" not in ns and "{actor_id}" not in ns:
+            logger.warning(
+                "Harness '%s': memory_config.namespace_template='%s' does not "
+                "contain '{actorId}' — this may cause cross-user memory access",
+                self.name, ns,
+            )
+
+        # --- Skill directory validation (soft warning) ---
+        for sd in self.skill_directories:
+            p = Path(sd)
+            if p.is_absolute() and not p.exists():
+                logger.warning(
+                    "Harness '%s': skill_directory '%s' does not exist",
+                    self.name, sd,
+                )
+
+        if errors:
+            for e in errors:
+                logger.error("Harness validation error: %s", e)
+
+        return errors
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {

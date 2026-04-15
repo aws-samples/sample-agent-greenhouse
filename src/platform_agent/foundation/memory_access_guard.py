@@ -50,62 +50,7 @@ class MemoryAccessGuard:
         Raises:
             MemoryAccessViolation: If strict_mode=True and access is denied.
         """
-        if not namespace:
-            # Empty namespace is treated as no scoping - potentially dangerous
-            return self._handle_violation(
-                f"Empty namespace not allowed",
-                namespace=namespace,
-                actor_id=actor_id
-            )
-
-        if namespace == "/":
-            # Root namespace allows access to ALL users - block this
-            return self._handle_violation(
-                f"Root namespace '/' access denied - would expose all user data",
-                namespace=namespace,
-                actor_id=actor_id
-            )
-
-        if not actor_id:
-            # No actor ID means we can't validate user scope
-            return self._handle_violation(
-                f"Cannot validate namespace '{namespace}' - missing actor_id",
-                namespace=namespace,
-                actor_id=actor_id
-            )
-
-        # Check for template placeholders that would be resolved to actor_id
-        if "{actorId}" in namespace or "{actor_id}" in namespace:
-            logger.debug("Access allowed: namespace '%s' contains actor template", namespace)
-            return True
-
-        # Check for shared/public spaces (but prevent path traversal)
-        if (namespace.startswith("shared/") or namespace.startswith("public/")) and ".." not in namespace:
-            logger.debug("Access allowed: namespace '%s' is shared/public", namespace)
-            return True
-
-        # Check if namespace contains the actor_id as a complete path component
-        # This prevents partial matches like "user123x" matching "user123"
-        namespace_parts = namespace.split("/")
-        actor_parts = actor_id.split("/") if "/" in actor_id else [actor_id]
-
-        # Check if any part of the namespace exactly matches the actor_id
-        for ns_part in namespace_parts:
-            if ns_part == actor_id:
-                logger.debug("Access allowed: namespace '%s' contains exact actor_id '%s'", namespace, actor_id)
-                return True
-
-        # Check if the namespace starts with actor_id/ (user's own namespace)
-        if namespace.startswith(f"{actor_id}/"):
-            logger.debug("Access allowed: namespace '%s' starts with actor_id '%s/'", namespace, actor_id)
-            return True
-
-        # Namespace doesn't contain user ID - potential cross-user access
-        return self._handle_violation(
-            f"Cross-user access denied: namespace '{namespace}' does not include actor '{actor_id}'",
-            namespace=namespace,
-            actor_id=actor_id
-        )
+        return self._check_namespace(namespace, actor_id, raise_on_violation=self.strict_mode)
 
     def validate_retrieval_request(
         self,
@@ -220,10 +165,79 @@ class MemoryAccessGuard:
     def _is_namespace_safe(self, namespace: str, actor_id: str) -> bool:
         """Check namespace safety without raising or logging violations.
 
-        Uses the same rules as validate_namespace but returns bool only.
+        Delegates to the shared validation logic with raise_on_violation=False
+        so that violations are silently returned as False.
         """
-        guard = MemoryAccessGuard(strict_mode=False)
-        return guard.validate_namespace(namespace, actor_id)
+        return self._check_namespace(namespace, actor_id, raise_on_violation=False)
+
+    def _check_namespace(self, namespace: str, actor_id: str, raise_on_violation: bool) -> bool:
+        """Core namespace validation logic shared by public and internal callers.
+
+        Args:
+            namespace: The namespace being accessed.
+            actor_id: The actor making the request.
+            raise_on_violation: If True, raises MemoryAccessViolation on denial.
+                If False, logs a warning and returns False.
+
+        Returns:
+            True if access is allowed, False if blocked.
+        """
+        if not namespace:
+            return self._handle_violation_internal(
+                "Empty namespace not allowed",
+                namespace=namespace, actor_id=actor_id,
+                raise_on_violation=raise_on_violation,
+            )
+
+        if namespace == "/":
+            return self._handle_violation_internal(
+                "Root namespace '/' access denied - would expose all user data",
+                namespace=namespace, actor_id=actor_id,
+                raise_on_violation=raise_on_violation,
+            )
+
+        if not actor_id:
+            return self._handle_violation_internal(
+                f"Cannot validate namespace '{namespace}' - missing actor_id",
+                namespace=namespace, actor_id=actor_id,
+                raise_on_violation=raise_on_violation,
+            )
+
+        if "{actorId}" in namespace or "{actor_id}" in namespace:
+            return True
+
+        if (namespace.startswith("shared/") or namespace.startswith("public/")) and ".." not in namespace:
+            return True
+
+        namespace_parts = namespace.split("/")
+        for ns_part in namespace_parts:
+            if ns_part == actor_id:
+                return True
+
+        if namespace.startswith(f"{actor_id}/"):
+            return True
+
+        return self._handle_violation_internal(
+            f"Cross-user access denied: namespace '{namespace}' does not include actor '{actor_id}'",
+            namespace=namespace, actor_id=actor_id,
+            raise_on_violation=raise_on_violation,
+        )
+
+    def _handle_violation_internal(
+        self,
+        message: str,
+        namespace: str,
+        actor_id: str,
+        raise_on_violation: bool,
+    ) -> bool:
+        """Handle a violation with explicit raise control (no mutable state)."""
+        full_message = f"Memory access violation: {message}"
+        if raise_on_violation:
+            logger.error(full_message)
+            raise MemoryAccessViolation(full_message)
+        else:
+            logger.warning(full_message)
+            return False
 
     def get_security_summary(self) -> dict[str, Any]:
         """Get a summary of current security configuration.

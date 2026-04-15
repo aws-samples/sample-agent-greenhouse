@@ -207,9 +207,7 @@ class TestFullAgentAssembly:
         assert HallucinationDetectorHook in types
         assert SessionRecordingHook in types
         assert SessionRecordingHook in types
-        # CompactionHook removed (dead code cleanup)
-        from platform_agent.foundation.hooks import CompactionHook
-        assert CompactionHook not in types
+        # CompactionHook was removed entirely (dead code cleanup)
         assert not hasattr(agent, 'compaction_hook')
 
     def test_agent_without_workspace(self):
@@ -273,8 +271,7 @@ class TestHookProviderCompliance:
         assert hasattr(hook, "register_hooks")
         assert callable(hook.register_hooks)
 
-    def test_compaction_hook_has_register_hooks(self):
-        from platform_agent.foundation.hooks import CompactionHook
-        hook = CompactionHook()
-        assert hasattr(hook, "register_hooks")
-        assert callable(hook.register_hooks)
+    def test_compaction_hook_removed(self):
+        """CompactionHook was deprecated and removed from the public API."""
+        import platform_agent.foundation.hooks as hooks_mod
+        assert not hasattr(hooks_mod, "CompactionHook")
