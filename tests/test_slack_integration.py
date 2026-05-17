@@ -557,6 +557,9 @@ class TestLambdaHandler:
         mock_sqs = MagicMock()
         mock_boto3.return_value = mock_sqs
 
+        # Use a recent timestamp so the Fix 2 stale-event guard does not
+        # drop this payload before it reaches SQS.
+        recent_ts = f"{time.time() - 5:.6f}"
         event = {
             "body": json.dumps({
                 "event": {
@@ -565,7 +568,7 @@ class TestLambdaHandler:
                     "channel": "D_DM",
                     "channel_type": "im",
                     "text": "hello",
-                    "ts": "123.456",
+                    "ts": recent_ts,
                 }
             }),
             "headers": {},
@@ -573,3 +576,234 @@ class TestLambdaHandler:
         result = lambda_handler(event, None)
         assert result["statusCode"] == 200
         mock_sqs.send_message.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: stale-event guard (ack Lambda)
+# ---------------------------------------------------------------------------
+
+class TestStaleEventGuard:
+    """The ack Lambda must drop event_callbacks whose event.ts is > 1h old."""
+
+    def _event(self, ts: str) -> dict:
+        return {
+            "body": json.dumps({
+                "event": {
+                    "type": "message",
+                    "user": "U_USER",
+                    "channel": "D_DM",
+                    "channel_type": "im",
+                    "text": "replayed",
+                    "ts": ts,
+                }
+            }),
+            "headers": {},
+        }
+
+    @patch("boto3.client")
+    def test_stale_event_is_dropped_without_enqueue(self, mock_boto3):
+        from platform_agent.slack.lambda_function import lambda_handler
+        import platform_agent.slack.lambda_function as lf
+        lf._handler = None
+        lf._seen_events.clear()
+
+        mock_sqs = MagicMock()
+        mock_boto3.return_value = mock_sqs
+
+        stale_ts = f"{time.time() - 7200:.6f}"  # 2 hours old
+        result = lambda_handler(self._event(stale_ts), None)
+        assert result["statusCode"] == 200
+        mock_sqs.send_message.assert_not_called()
+
+    @patch("boto3.client")
+    def test_fresh_event_is_enqueued(self, mock_boto3):
+        from platform_agent.slack.lambda_function import lambda_handler
+        import platform_agent.slack.lambda_function as lf
+        import os
+
+        lf._handler = None
+        lf._seen_events.clear()
+
+        mock_sqs = MagicMock()
+        mock_boto3.return_value = mock_sqs
+
+        os.environ["ASYNC_QUEUE_URL"] = "https://sqs.us-west-2.amazonaws.com/000000000000/q"
+        try:
+            fresh_ts = f"{time.time() - 2:.6f}"
+            result = lambda_handler(self._event(fresh_ts), None)
+            assert result["statusCode"] == 200
+            mock_sqs.send_message.assert_called_once()
+        finally:
+            del os.environ["ASYNC_QUEUE_URL"]
+
+
+# ---------------------------------------------------------------------------
+# Fix 3: structured logging (ack Lambda)
+# ---------------------------------------------------------------------------
+
+class TestStructuredLogging:
+    def test_diagnostics_extract_key_fields(self):
+        from platform_agent.slack.lambda_function import _extract_diagnostics
+
+        apigw_event = {
+            "headers": {
+                "X-Slack-Retry-Num": "2",
+                "X-Slack-Retry-Reason": "http_timeout",
+                "X-Slack-Signature": "v0=abcdef0123456789aaaaa",
+            }
+        }
+        body = {
+            "team_id": "T123",
+            "api_app_id": "A456",
+            "event_id": "Ev789",
+            "event_time": 1700000000,
+            "event": {
+                "type": "message",
+                "subtype": None,
+                "ts": "1700000000.001100",
+                "channel": "D_DM",
+                "channel_type": "im",
+            },
+        }
+        diag = _extract_diagnostics(apigw_event, body)
+        assert diag["retry_num"] == "2"
+        assert diag["retry_reason"] == "http_timeout"
+        assert diag["signature_prefix"] == "v0=abcdef0"
+        assert diag["event_id"] == "Ev789"
+        assert diag["event_time"] == 1700000000
+        assert diag["event_type"] == "message"
+        assert diag["team_id"] == "T123"
+        assert diag["api_app_id"] == "A456"
+        assert diag["channel"] == "D_DM"
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: DynamoDB dedup
+# ---------------------------------------------------------------------------
+
+class TestDynamoDbDedup:
+    def test_no_table_env_defaults_to_claim_success(self, handler, monkeypatch):
+        # Clear env var and client; no table configured → claim succeeds
+        monkeypatch.delenv("SLACK_DEDUP_TABLE", raising=False)
+        assert handler._dedup_ddb_claim("dk-1") is True
+
+    def test_conditional_check_failed_is_treated_as_duplicate(self, handler, monkeypatch):
+        monkeypatch.setenv("SLACK_DEDUP_TABLE", "plato-slack-dedup")
+
+        class CCFE(Exception):
+            pass
+        CCFE.__name__ = "ConditionalCheckFailedException"
+
+        fake_client = MagicMock()
+        fake_client.put_item.side_effect = CCFE("The conditional request failed")
+        # Inject the fake client via class attribute (lazy init respects existing)
+        SlackEventHandler._ddb_client = fake_client
+        try:
+            assert handler._dedup_ddb_claim("dk-dup") is False
+        finally:
+            SlackEventHandler._ddb_client = None
+
+    def test_other_errors_fail_open(self, handler, monkeypatch):
+        monkeypatch.setenv("SLACK_DEDUP_TABLE", "plato-slack-dedup")
+        fake_client = MagicMock()
+        fake_client.put_item.side_effect = RuntimeError("throttled")
+        SlackEventHandler._ddb_client = fake_client
+        try:
+            assert handler._dedup_ddb_claim("dk-err") is True
+        finally:
+            SlackEventHandler._ddb_client = None
+
+
+# ---------------------------------------------------------------------------
+# Fix 4: DM bot-after-bot guard
+# ---------------------------------------------------------------------------
+
+class TestDmBotAfterBot:
+    def _message(self, ts: str = "1700000000.000100", is_dm: bool = True) -> SlackMessage:
+        return SlackMessage(
+            text="hi",
+            user_id="U_USER",
+            channel_id="D_DM",
+            ts=ts,
+            is_dm=is_dm,
+        )
+
+    def test_non_dm_returns_false(self, handler):
+        msg = self._message(is_dm=False)
+        assert handler._dm_bot_recently_replied(msg) is False
+
+    @patch("urllib.request.urlopen")
+    def test_recent_bot_reply_triggers_skip(self, mock_urlopen, handler):
+        handler.config.bot_user_id = "U_BOT"
+        handler.config.bot_token = "xoxb-test"
+        # Slack returns most-recent-first. Most recent is a bot message
+        # newer than our inbound ts.
+        payload = {
+            "ok": True,
+            "messages": [
+                {"user": "U_BOT", "bot_id": "B1", "ts": "1700000000.000500"},
+                {"user": "U_USER", "ts": "1700000000.000100"},
+            ],
+        }
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = lambda self_: self_
+        mock_resp.__exit__ = lambda *a, **kw: False
+        mock_resp.read = lambda: json.dumps(payload).encode("utf-8")
+        mock_urlopen.return_value = mock_resp
+
+        msg = self._message(ts="1700000000.000100")
+        assert handler._dm_bot_recently_replied(msg) is True
+
+    @patch("urllib.request.urlopen")
+    def test_old_bot_reply_does_not_trigger_skip(self, mock_urlopen, handler):
+        handler.config.bot_user_id = "U_BOT"
+        handler.config.bot_token = "xoxb-test"
+        payload = {
+            "ok": True,
+            "messages": [
+                # Inbound message itself shows up first — skipped.
+                {"user": "U_USER", "ts": "1700000000.000100"},
+                # Older bot reply → normal history; don't skip.
+                {"user": "U_BOT", "bot_id": "B1", "ts": "1699999000.000000"},
+            ],
+        }
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = lambda self_: self_
+        mock_resp.__exit__ = lambda *a, **kw: False
+        mock_resp.read = lambda: json.dumps(payload).encode("utf-8")
+        mock_urlopen.return_value = mock_resp
+
+        msg = self._message(ts="1700000000.000100")
+        assert handler._dm_bot_recently_replied(msg) is False
+
+
+# ---------------------------------------------------------------------------
+# Fix 5: SlackConfig.from_ssm / load
+# ---------------------------------------------------------------------------
+
+class TestSlackConfigSsm:
+    def test_load_defaults_to_env(self, monkeypatch):
+        monkeypatch.delenv("PLATO_SLACK_CONFIG_SOURCE", raising=False)
+        monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-env-value")
+        cfg = SlackConfig.load()
+        assert cfg.bot_token == "xoxb-env-value"
+
+    def test_ssm_fallback_prefers_ssm_but_fills_from_env(self, monkeypatch):
+        monkeypatch.setenv("PLATO_SLACK_CONFIG_SOURCE", "ssm_fallback")
+        monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-env-fallback")
+        monkeypatch.setenv("SLACK_SIGNING_SECRET", "signing-env")
+
+        with patch("boto3.client") as mock_boto3:
+            ssm = MagicMock()
+            # First call (bot-token) returns SSM value; second call
+            # (signing-secret) raises, exercising fallback to env.
+            ssm.get_parameter.side_effect = [
+                {"Parameter": {"Value": "xoxb-from-ssm"}},
+                Exception("param not found"),
+            ]
+            mock_boto3.return_value = ssm
+
+            cfg = SlackConfig.load()
+            assert cfg.bot_token == "xoxb-from-ssm"
+            # Signing secret fell back to env
+            assert cfg.signing_secret == "signing-env"

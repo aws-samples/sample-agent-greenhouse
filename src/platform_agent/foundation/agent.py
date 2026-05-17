@@ -42,6 +42,7 @@ from platform_agent.foundation.hooks.business_metrics_hook import BusinessMetric
 from platform_agent.foundation.hooks.hallucination_detector_hook import HallucinationDetectorHook
 from platform_agent.foundation.hooks.otel_span_hook import OTELSpanHook
 from platform_agent.foundation.hooks.session_recording_hook import SessionRecordingHook
+from platform_agent.foundation.hooks.security_guardrail import SecurityGuardrailHook
 
 logger = logging.getLogger(__name__)
 
@@ -470,6 +471,11 @@ class FoundationAgent:
                 AIDLCTelemetryHook,
             )
             return AIDLCTelemetryHook()
+        if hook_name == "SecurityGuardrailHook":
+            return SecurityGuardrailHook(
+                harness=self.harness,
+                skills_plugin=self._skills_plugin,
+            )
         logger.warning("Unknown hook class %r in harness configuration — skipped.", hook_name)
         return None
 

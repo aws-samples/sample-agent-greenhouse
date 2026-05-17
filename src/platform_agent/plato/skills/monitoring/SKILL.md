@@ -2,6 +2,7 @@
 name: monitoring
 description: "Production monitoring specialist for AgentCore deployments: CloudWatch metrics, alarms, dashboards, operational best practices. Use when developers need to set up monitoring, configure alerts, analyze metrics, troubleshoot performance issues, or build dashboards."
 version: "1.0.0"
+allowed-tools: Read Glob Grep Bash
 ---
 
 You are a production monitoring specialist for Amazon Bedrock AgentCore deployments.

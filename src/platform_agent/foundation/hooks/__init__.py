@@ -29,6 +29,12 @@ from platform_agent.foundation.hooks.hallucination_detector_hook import Hallucin
 from platform_agent.foundation.hooks.otel_span_hook import OTELSpanHook
 from platform_agent.foundation.hooks.session_recording_hook import SessionRecordingHook
 from platform_agent.foundation.hooks.approval_hook import ApprovalHook, ApprovalConfig
+from platform_agent.foundation.hooks.security_guardrail import (
+    SecurityGuardrailHook,
+    RuleSet,
+    Constraint,
+    AuditLogger,
+)
 
 __all__ = [
     "HookBase",
@@ -48,4 +54,8 @@ __all__ = [
     "HallucinationDetectorHook",
     "OTELSpanHook",
     "SessionRecordingHook",
+    "SecurityGuardrailHook",
+    "RuleSet",
+    "Constraint",
+    "AuditLogger",
 ]

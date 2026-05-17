@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from platform_agent.memory import (
@@ -158,28 +160,189 @@ class TestLocalMemory:
 
 
 # ---------------------------------------------------------------------------
-# Namespace isolation tests (AgentCoreMemory static methods)
+# Namespace resolution + actor isolation tests (AgentCoreMemory helpers)
 # ---------------------------------------------------------------------------
 
 
-class TestNamespaceIsolation:
-    def test_actor_namespace(self) -> None:
-        ns = AgentCoreMemory._actor_namespace("U123")
-        assert ns == "/actors/U123/"
+class TestResolveNamespace:
+    def test_substitutes_actor_id(self) -> None:
+        ns = AgentCoreMemory._resolve_namespace(
+            "/users/{actorId}/facts/", actor_id="U123",
+        )
+        assert ns == "/users/U123/facts/"
 
-    def test_actor_namespace_special_chars(self) -> None:
-        ns = AgentCoreMemory._actor_namespace("user-with-dashes")
-        assert ns == "/actors/user-with-dashes/"
+    def test_substitutes_strategy_id(self) -> None:
+        ns = AgentCoreMemory._resolve_namespace(
+            "/strategies/{memoryStrategyId}/actors/{actorId}/",
+            actor_id="U123", strategy_id="episodicMemory-1QD9JE5IHs",
+        )
+        assert ns == "/strategies/episodicMemory-1QD9JE5IHs/actors/U123/"
 
+    def test_substitutes_session_id(self) -> None:
+        ns = AgentCoreMemory._resolve_namespace(
+            "/summaries/{actorId}/{sessionId}/",
+            actor_id="U123", session_id="thread-42",
+        )
+        assert ns == "/summaries/U123/thread-42/"
+
+    def test_drops_session_placeholder_when_no_session(self) -> None:
+        ns = AgentCoreMemory._resolve_namespace(
+            "/summaries/{actorId}/{sessionId}/",
+            actor_id="U123", session_id=None,
+        )
+        assert "{sessionId}" not in ns
+        assert ns.startswith("/summaries/U123")
+        assert ns.endswith("/")
+
+    def test_special_chars_in_actor_id(self) -> None:
+        ns = AgentCoreMemory._resolve_namespace(
+            "/users/{actorId}/facts/", actor_id="user-with-dashes",
+        )
+        assert ns == "/users/user-with-dashes/facts/"
+
+
+class TestRecordBelongsToActor:
+    def test_matching_prefix(self) -> None:
+        assert AgentCoreMemory._record_belongs_to_actor(
+            ["/users/U123/facts/rec-1"],
+            ["/users/U123/facts/"],
+        ) is True
+
+    def test_no_match(self) -> None:
+        assert AgentCoreMemory._record_belongs_to_actor(
+            ["/users/U999/facts/rec-1"],
+            ["/users/U123/facts/"],
+        ) is False
+
+    def test_substring_not_prefix(self) -> None:
+        """Substring match must NOT succeed — only startswith."""
+        assert AgentCoreMemory._record_belongs_to_actor(
+            ["/other/users/U123/facts/rec-1"],
+            ["/users/U123/facts/"],
+        ) is False
+
+    def test_multiple_prefixes(self) -> None:
+        assert AgentCoreMemory._record_belongs_to_actor(
+            ["/summaries/U123/thread-1/rec-1"],
+            ["/users/U123/facts/", "/summaries/U123/"],
+        ) is True
+
+    def test_empty_namespaces(self) -> None:
+        assert AgentCoreMemory._record_belongs_to_actor([], ["/users/U123/"]) is False
+        assert AgentCoreMemory._record_belongs_to_actor(["/users/U123/"], []) is False
+
+
+class TestProjectNamespace:
     def test_project_namespace(self) -> None:
         ns = AgentCoreMemory._project_namespace("U123", "weather-agent")
         assert ns == "/actors/U123/projects/weather-agent/"
 
-    def test_project_namespace_nested(self) -> None:
-        """Project namespace is always under actor namespace."""
-        actor_ns = AgentCoreMemory._actor_namespace("U123")
-        project_ns = AgentCoreMemory._project_namespace("U123", "my-project")
-        assert project_ns.startswith(actor_ns)
+
+class TestSearchLongTermActorValidation:
+    """Tests that search_long_term refuses calls without a valid actor_id."""
+
+    @patch("platform_agent.memory.AgentCoreMemory._load_strategy_templates")
+    def _make_memory(self, mock_load: MagicMock) -> AgentCoreMemory:
+        mock_load.return_value = []
+        mock_client = MagicMock()
+        with patch("platform_agent.memory.AgentCoreMemory.__init__", return_value=None):
+            mem = AgentCoreMemory.__new__(AgentCoreMemory)
+            mem._memory_id = "test-mem"
+            mem._region = "us-west-2"
+            mem._client = mock_client
+            mem._use_sdk = True
+            mem._strategy_templates = None
+        return mem
+
+    def test_refuses_none_actor(self) -> None:
+        mem = self._make_memory()
+        result = mem.search_long_term("test query", actor_id=None)
+        assert result == []
+
+    def test_refuses_empty_actor(self) -> None:
+        mem = self._make_memory()
+        result = mem.search_long_term("test query", actor_id="")
+        assert result == []
+
+    def test_refuses_default_actor(self) -> None:
+        mem = self._make_memory()
+        result = mem.search_long_term("test query", actor_id="default")
+        assert result == []
+
+
+class TestSearchLongTermPostFilter:
+    """Tests that search_long_term drops cross-actor records via post-filter."""
+
+    def _make_memory_with_templates(
+        self, templates: list[dict[str, str]]
+    ) -> AgentCoreMemory:
+        mem = AgentCoreMemory.__new__(AgentCoreMemory)
+        mem._memory_id = "test-mem"
+        mem._region = "us-west-2"
+        mem._client = MagicMock()
+        mem._use_sdk = True
+        mem._strategy_templates = templates
+        return mem
+
+    def test_post_filter_drops_cross_actor_records(self) -> None:
+        templates = [
+            {"strategyId": "SemanticFacts-abc", "namespace": "/users/{actorId}/facts/"},
+        ]
+        mem = self._make_memory_with_templates(templates)
+
+        actor_a_record = MemoryRecord(
+            record_id="rec-A1", text="Actor A data", score=0.9,
+            strategy_id="SemanticFacts-abc",
+            namespaces=["/users/ACTOR-A/facts/rec-A1"],
+        )
+        actor_b_record = MemoryRecord(
+            record_id="rec-B1", text="Actor B data", score=0.95,
+            strategy_id="SemanticFacts-abc",
+            namespaces=["/users/ACTOR-B/facts/rec-B1"],
+        )
+
+        with patch.object(mem, "_retrieve_for_namespace", return_value=[actor_a_record, actor_b_record]):
+            results = mem.search_long_term("test", actor_id="ACTOR-B")
+
+        record_ids = [r.record_id for r in results]
+        assert "rec-B1" in record_ids
+        assert "rec-A1" not in record_ids
+
+    def test_dedup_merged_results(self) -> None:
+        templates = [
+            {"strategyId": "S1", "namespace": "/users/{actorId}/facts/"},
+            {"strategyId": "S2", "namespace": "/users/{actorId}/prefs/"},
+        ]
+        mem = self._make_memory_with_templates(templates)
+
+        dup_record_1 = MemoryRecord(
+            record_id="rec-1", text="Same record", score=0.9,
+            strategy_id="S1", namespaces=["/users/U1/facts/rec-1"],
+        )
+        dup_record_2 = MemoryRecord(
+            record_id="rec-1", text="Same record", score=0.8,
+            strategy_id="S2", namespaces=["/users/U1/prefs/rec-1"],
+        )
+        unique_record = MemoryRecord(
+            record_id="rec-2", text="Other", score=0.7,
+            strategy_id="S1", namespaces=["/users/U1/facts/rec-2"],
+        )
+
+        call_count = [0]
+        returns = [[dup_record_1, unique_record], [dup_record_2]]
+
+        def side_effect(**kwargs: object) -> list[MemoryRecord]:
+            idx = call_count[0]
+            call_count[0] += 1
+            return returns[idx] if idx < len(returns) else []
+
+        with patch.object(mem, "_retrieve_for_namespace", side_effect=side_effect):
+            results = mem.search_long_term("test", actor_id="U1")
+
+        assert len(results) == 2
+        assert results[0].record_id == "rec-1"
+        assert results[0].score == 0.9
+        assert results[1].record_id == "rec-2"
 
 
 # ---------------------------------------------------------------------------

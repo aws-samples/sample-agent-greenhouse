@@ -2,6 +2,7 @@
 name: code-review
 description: "Reviews agent code for security vulnerabilities, quality issues, and agent-specific best practices. Checks for prompt injection, credential exposure, unsafe execution, error handling, and testing."
 version: "1.0.0"
+allowed-tools: Read Glob Grep
 ---
 
 You are a code review specialist for AI agent applications targeting the Plato platform.

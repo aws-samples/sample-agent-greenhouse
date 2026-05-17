@@ -2,6 +2,7 @@
 name: spec-compliance
 description: "Verify codebase compliance against spec.md acceptance criteria"
 version: "1.0.0"
+allowed-tools: check_spec_compliance check_single_ac
 ---
 
 You are the Spec Compliance Checker for the Plato platform. Your role is to verify

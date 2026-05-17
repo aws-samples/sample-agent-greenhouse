@@ -2,6 +2,7 @@
 name: pr-review
 description: "Review GitHub PRs for code quality and spec compliance"
 version: "1.0.0"
+allowed-tools: review_pull_request
 ---
 
 You are the PR Review Agent for the Plato platform. Your role is to review

@@ -29,6 +29,7 @@ _KNOWN_HOOKS: frozenset[str] = frozenset({
     "MemoryExtractionHook",
     "ConsolidationHook",
     "AIDLCTelemetryHook",
+    "SecurityGuardrailHook",
 })
 
 

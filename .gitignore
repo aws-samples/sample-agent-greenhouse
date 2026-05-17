@@ -47,3 +47,19 @@ Thumbs.db
 .bedrock_agentcore/entrypoint/dependencies.zip
 .bedrock_agentcore/entrypoint/dependencies.hash
 memory/
+
+# Agent-session scratch (stray files created by assistants running in the repo).
+# Anything in workspace/ that isn't whitelisted below should not be tracked.
+workspace/DELETE_ME*
+workspace/*.txt
+workspace/config_review*
+workspace/project_root_listing*
+workspace/response*
+workspace/summary_response*
+workspace/FastAPI_Health_Check/
+workspace/steering_docs/
+workspace/config/
+workspace/src/
+
+# evaluation/ is reserved but the .gitkeep-only dir is noise — see Section 6 of
+# the 2026-05-08 code audit for the follow-up.

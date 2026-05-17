@@ -2,6 +2,7 @@
 name: observability
 description: "Observability specialist for agent fleet monitoring, policy violation tracking, audit log analysis, and compliance reporting. Use when teams need to check agent status, investigate violations, analyze audit logs, or generate operational reports."
 version: "1.0.0"
+allowed-tools: Read Glob Grep Bash
 ---
 
 You are an observability specialist for the Plato Control Plane.

@@ -2,6 +2,7 @@
 name: knowledge
 description: "Platform knowledge base: readiness requirements (C1-C12), deployment patterns, agent architecture patterns, and troubleshooting guides. Use when developers ask about platform capabilities, best practices, requirements, how to deploy, what is needed, or need help debugging deployment issues."
 version: "1.0.0"
+allowed-tools: Read Glob Grep
 ---
 
 You have access to platform knowledge documentation. When a developer asks

@@ -243,11 +243,21 @@ Both Lambdas need:
 
 | Variable | Example | Description |
 |----------|---------|-------------|
-| `SLACK_BOT_TOKEN` | `xoxb-...` | Bot User OAuth Token from Slack |
-| `SLACK_SIGNING_SECRET` | (from Slack app) | Signing secret for request verification |
+| `PLATO_SLACK_CONFIG_SOURCE` | `ssm_fallback` | Where to load Slack secrets from. `env` (legacy), `ssm` (prod target), `ssm_fallback` (safe rollout). |
 | `PLATO_SLACK_MODE` | `agentcore` | Set to `agentcore` for production |
 | `PLATO_REGION` | `us-west-2` | AWS region for Bedrock/AgentCore |
 | `AGENTCORE_RUNTIME_ARN` | `arn:aws:bedrock-agentcore:...` | Agent runtime ARN from deploy output |
+| `SLACK_DEDUP_TABLE` | `plato-slack-dedup` | DynamoDB table for cross-container event dedup (7-day TTL). Omit to fall back to legacy in-memory-only dedup. |
+
+Legacy (env-only mode, `PLATO_SLACK_CONFIG_SOURCE=env`):
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `SLACK_BOT_TOKEN` | `xoxb-...` | Bot User OAuth Token from Slack |
+| `SLACK_SIGNING_SECRET` | (from Slack app) | Signing secret for request verification |
+
+> **Preferred**: store the bot token and signing secret as SSM SecureString parameters at `/plato/slack/bot-token` and `/plato/slack/signing-secret`, then set `PLATO_SLACK_CONFIG_SOURCE=ssm` and remove the plaintext env vars.
+> Hard rule: no plaintext Slack / Cognito / GitHub tokens in Lambda environment variables.
 
 The ack Lambda also needs:
 
@@ -288,17 +298,52 @@ The worker Lambda execution role needs:
     "bedrock-agentcore:InvokeAgentRuntime",
     "cognito-idp:AdminInitiateAuth",
     "cognito-idp:ListUsers",
-    "ssm:GetParameter"
+    "ssm:GetParameter",
+    "dynamodb:PutItem",
+    "dynamodb:GetItem"
   ],
   "Resource": [
     "arn:aws:bedrock-agentcore:<REGION>:<ACCOUNT_ID>:runtime/<AGENT_ID>",
     "arn:aws:cognito-idp:<REGION>:<ACCOUNT_ID>:userpool/<USER_POOL_ID>",
-    "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/plato/cognito/*"
+    "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/plato/cognito/*",
+    "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/plato/slack/*",
+    "arn:aws:dynamodb:<REGION>:<ACCOUNT_ID>:table/plato-slack-dedup"
   ]
 }
 ```
 
-The ack Lambda execution role needs `sqs:SendMessage` on the FIFO queue.
+The ack Lambda execution role needs `sqs:SendMessage` on the FIFO queue,
+plus the same `ssm:GetParameter` / `dynamodb:PutItem`-`GetItem` grants if it
+shares the `SlackConfig.from_ssm()` and DynamoDB dedup paths (recommended
+so both Lambdas behave identically if the ack falls back to sync mode).
+
+### 5d-extra: DynamoDB dedup table (Fix 1)
+
+Create a single on-demand table to hold persistent, cross-container dedup
+state with a 7-day TTL (matches Slack's own event re-delivery window):
+
+```bash
+aws dynamodb create-table \
+  --table-name plato-slack-dedup \
+  --attribute-definitions AttributeName=dedup_key,AttributeType=S \
+  --key-schema AttributeName=dedup_key,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-west-2
+
+aws dynamodb update-time-to-live \
+  --table-name plato-slack-dedup \
+  --time-to-live-specification 'Enabled=true,AttributeName=expires_at' \
+  --region us-west-2
+```
+
+Set the worker (and optionally the ack) Lambda env var:
+
+```
+SLACK_DEDUP_TABLE=plato-slack-dedup
+```
+
+The code fails open if the table is missing or DynamoDB is unreachable, so
+you can roll this out infra-first, env-var-second without risking outage.
 
 ### 5e. API Gateway
 
