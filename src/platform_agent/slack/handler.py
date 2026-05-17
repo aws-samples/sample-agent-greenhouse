@@ -65,6 +65,87 @@ class SlackConfig:
             identity_enabled=os.environ.get("PLATO_IDENTITY_ENABLED", "false").lower() == "true",
         )
 
+    @classmethod
+    def from_ssm(cls, region: str = "") -> "SlackConfig":
+        """Load secret config from AWS SSM Parameter Store.
+
+        Reads the Slack bot token and signing secret from SSM SecureString
+        parameters so they don't have to live in Lambda environment
+        variables (hard rule: no plaintext tokens in env). Non-secret
+        fields (mode, region, runtime ARN, etc.) still come from env.
+
+        SSM parameter names:
+          /plato/slack/bot-token        (SecureString)
+          /plato/slack/signing-secret   (SecureString)
+
+        Fails open: if SSM is unreachable or a parameter is missing, the
+        corresponding env-var value is used as a fallback — this keeps
+        the migration reversible and the Lambda running if SSM has an
+        outage.
+        """
+        import boto3  # local import: keeps cold-start cheap for env-only path
+
+        if not region:
+            region = os.environ.get("PLATO_REGION") or os.environ.get("AWS_REGION", "us-west-2")
+        try:
+            ssm = boto3.client("ssm", region_name=region)
+        except Exception as e:
+            logger.warning("Failed to init SSM client, falling back to env: %s", e)
+            return cls.from_env()
+
+        def _get(name: str, decrypt: bool = True) -> str:
+            try:
+                resp = ssm.get_parameter(Name=name, WithDecryption=decrypt)
+                value = resp["Parameter"]["Value"]
+                logger.info("Loaded SSM parameter %s", name)
+                return value
+            except Exception as e:
+                logger.warning("Failed to get SSM param %s: %s", name, e)
+                return ""
+
+        bot_token = _get("/plato/slack/bot-token") or os.environ.get("SLACK_BOT_TOKEN", "")
+        signing_secret = _get("/plato/slack/signing-secret") or os.environ.get(
+            "SLACK_SIGNING_SECRET", ""
+        )
+
+        mode = os.environ.get("PLATO_SLACK_MODE", "echo")
+        return cls(
+            bot_token=bot_token,
+            signing_secret=signing_secret,
+            app_id=os.environ.get("SLACK_APP_ID", ""),
+            agentcore_runtime_arn=os.environ.get("AGENTCORE_RUNTIME_ARN", ""),
+            agentcore_runtime_endpoint=os.environ.get("AGENTCORE_RUNTIME_ENDPOINT", ""),
+            agentcore_agent_id=os.environ.get("AGENTCORE_AGENT_ID", ""),
+            mode=mode,
+            bot_user_id=os.environ.get("SLACK_BOT_USER_ID", ""),
+            agentcore_region=os.environ.get("PLATO_REGION", region),
+            identity_enabled=os.environ.get("PLATO_IDENTITY_ENABLED", "false").lower() == "true",
+        )
+
+    @classmethod
+    def load(cls) -> "SlackConfig":
+        """Preferred loader: env-first, then upgrade missing secrets from SSM.
+
+        Behavior controlled by env `PLATO_SLACK_CONFIG_SOURCE`:
+          - "env" (default):   pure env (legacy behavior).
+          - "ssm":             pure SSM for secrets (production target).
+          - "ssm_fallback":    try SSM; if secrets still empty, fall back
+                               to env. Safe rollout mode.
+        """
+        source = os.environ.get("PLATO_SLACK_CONFIG_SOURCE", "env").lower()
+        if source == "ssm":
+            return cls.from_ssm()
+        if source == "ssm_fallback":
+            cfg = cls.from_ssm()
+            if not cfg.bot_token or not cfg.signing_secret:
+                env_cfg = cls.from_env()
+                if not cfg.bot_token:
+                    cfg.bot_token = env_cfg.bot_token
+                if not cfg.signing_secret:
+                    cfg.signing_secret = env_cfg.signing_secret
+            return cfg
+        return cls.from_env()
+
 
 @dataclass
 class SlackMessage:
@@ -146,10 +227,154 @@ class SlackEventHandler:
     # Uses a class-level dict so it persists across handler instances
     # within the same Lambda container (warm starts).
     _processed_events: dict[str, float] = {}
-    _DEDUP_TTL = 600  # 10 minutes
+    _DEDUP_TTL = 600  # 10 minutes (in-memory fast path)
+
+    # Fix 1: cross-container persistent dedup via DynamoDB (7-day TTL).
+    # Populated lazily on first use, cached per Lambda container.
+    _ddb_client = None
+    _DEDUP_DDB_TABLE_ENV = "SLACK_DEDUP_TABLE"
+    _DEDUP_DDB_DEFAULT_TABLE = "plato-slack-dedup"
+    _DEDUP_DDB_TTL_SECONDS = 7 * 24 * 3600  # 7 days
 
     def __init__(self, config: SlackConfig | None = None):
-        self.config = config or SlackConfig.from_env()
+        self.config = config or SlackConfig.load()
+
+    # ------------------------------------------------------------------
+    # Fix 1: DynamoDB-backed persistent dedup
+    # ------------------------------------------------------------------
+    @classmethod
+    def _get_ddb_client(cls):
+        """Lazy boto3 DynamoDB client. Cached across warm invocations."""
+        if cls._ddb_client is None:
+            try:
+                import boto3
+
+                cls._ddb_client = boto3.client(
+                    "dynamodb",
+                    region_name=os.environ.get("AWS_REGION", "us-west-2"),
+                )
+            except Exception as e:
+                logger.warning("Failed to init DynamoDB client: %s", e)
+                cls._ddb_client = None
+        return cls._ddb_client
+
+    def _dedup_ddb_claim(self, dedup_key: str) -> bool:
+        """Claim a dedup_key in DynamoDB with conditional PutItem.
+
+        Returns True if this invocation won the claim (first-time processing),
+        False if another invocation already processed this event OR if
+        DynamoDB is unreachable (fail-open: keep legacy in-memory path).
+
+        TTL attribute `expires_at` lets DynamoDB evict old rows automatically
+        after 7 days, which matches Slack's own event replay window.
+        """
+        table_name = os.environ.get(self._DEDUP_DDB_TABLE_ENV)
+        if not table_name:
+            # Dedup table not configured — silently fall back to in-memory
+            # dedup so behavior is unchanged until infra is in place.
+            return True
+        ddb = self._get_ddb_client()
+        if ddb is None:
+            return True
+
+        now = int(time.time())
+        expires_at = now + self._DEDUP_DDB_TTL_SECONDS
+        try:
+            ddb.put_item(
+                TableName=table_name,
+                Item={
+                    "dedup_key": {"S": dedup_key},
+                    "processed_at": {"N": str(now)},
+                    "expires_at": {"N": str(expires_at)},
+                },
+                ConditionExpression="attribute_not_exists(dedup_key)",
+            )
+            return True
+        except Exception as e:
+            # botocore raises ConditionalCheckFailedException when the key
+            # already exists — that's our "duplicate" signal. Any other
+            # error (throttling, IAM, transient) logs a warning and is
+            # treated as claim-success so we don't accidentally drop real
+            # user messages when DynamoDB is degraded.
+            name = type(e).__name__
+            if "ConditionalCheckFailed" in name or "ConditionalCheckFailed" in str(e):
+                logger.info("DynamoDB dedup: duplicate detected for %s", dedup_key)
+                return False
+            logger.warning("DynamoDB dedup claim failed (%s): %s — failing open", name, e)
+            return True
+
+    # ------------------------------------------------------------------
+    # Fix 4: DM bot-after-bot detection (last-resort guard for DMs)
+    # ------------------------------------------------------------------
+    def _dm_bot_recently_replied(self, message: SlackMessage) -> bool:
+        """For DMs only: check the last few channel messages for a recent bot reply.
+
+        DMs cannot use `conversations.replies` (thread-scoped) reliably, so
+        we use `conversations.history` and look at the last 3 messages. If
+        the most recent message is:
+          - from our bot, AND
+          - has a timestamp greater than the inbound user message's ts
+
+        ...then we already responded to this exchange (or to its replay),
+        and we skip to avoid double-posting. This is the last-resort guard
+        that catches anything Fix 1 / Fix 2 miss.
+
+        Fails open: any API or parsing error returns False (process anyway).
+        """
+        if not message.is_dm:
+            return False
+        if not self.config.bot_token:
+            return False
+        try:
+            import urllib.request
+
+            params = f"channel={message.channel_id}&limit=3"
+            req = urllib.request.Request(
+                f"https://slack.com/api/conversations.history?{params}",
+                headers={"Authorization": f"Bearer {self.config.bot_token}"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if not data.get("ok"):
+                logger.debug(
+                    "conversations.history not ok: %s", data.get("error", "unknown")
+                )
+                return False
+
+            bot_user_id = self.config.bot_user_id
+            try:
+                inbound_ts = float(message.ts)
+            except (TypeError, ValueError):
+                return False
+
+            for msg in data.get("messages", []):
+                # Skip the inbound user message itself if it shows up.
+                if msg.get("ts") == message.ts:
+                    continue
+                is_bot_msg = bool(msg.get("bot_id")) or (
+                    bot_user_id and msg.get("user") == bot_user_id
+                )
+                if not is_bot_msg:
+                    # Most recent non-matching message is from a human —
+                    # nothing to worry about; stop scanning.
+                    return False
+                try:
+                    msg_ts = float(msg.get("ts", "0"))
+                except (TypeError, ValueError):
+                    continue
+                if msg_ts > inbound_ts:
+                    logger.info(
+                        "DM bot-after-bot guard: bot already replied "
+                        "(bot_ts=%s > inbound_ts=%s), skipping",
+                        msg_ts, inbound_ts,
+                    )
+                    return True
+                # Older bot message is normal conversation context; stop.
+                return False
+            return False
+        except Exception as e:
+            logger.debug("DM bot-after-bot check failed: %s", e)
+            return False
 
     def _bot_already_replied(self, message: SlackMessage, exclude_ts: str | None = None) -> bool:
         """Check if the bot already replied to this message (cross-container dedup).
@@ -1254,10 +1479,25 @@ class SlackEventHandler:
         expired = [k for k, v in self._processed_events.items() if now - v > self._DEDUP_TTL]
         for k in expired:
             del self._processed_events[k]
-        # Check if already processed
+        # Check if already processed (fast in-memory fast path — same container)
         if dedup_key in self._processed_events:
             logger.info("Handler dedup: skipping already-processed event %s", dedup_key)
             return {"statusCode": 200, "body": "ok"}
+
+        # Fix 1: cross-container persistent dedup via DynamoDB (7-day TTL).
+        # This catches Slack event replays that happen hours after the
+        # original message, which the in-memory dict can never cover.
+        # Fails open: if the table is not configured or DynamoDB is
+        # unreachable we fall back to in-memory-only dedup (current
+        # behavior) rather than reject user traffic.
+        if not self._dedup_ddb_claim(dedup_key):
+            logger.info(
+                "DynamoDB dedup: skipping already-processed event %s", dedup_key
+            )
+            # Also mark in-memory so later same-container retries short-circuit.
+            self._processed_events[dedup_key] = now
+            return {"statusCode": 200, "body": "ok"}
+
         # Mark as processing BEFORE doing any work (prevents race between
         # concurrent SQS deliveries hitting different Lambda instances —
         # though class-level dict only helps within same container).
@@ -1265,6 +1505,13 @@ class SlackEventHandler:
         # Lambda reuses the same module across warm invocations, so class-level
         # state persists. This is the fast first-layer dedup.
         self._processed_events[dedup_key] = now
+
+        # Fix 4: last-resort DM bot-after-bot check. If Fix 1 missed (e.g.
+        # DynamoDB unavailable) or the dedup key somehow changed, we still
+        # want to avoid greeting ourselves. This is a soft, fail-open
+        # check against Slack's own channel history.
+        if self._dm_bot_recently_replied(message):
+            return {"statusCode": 200, "body": "ok"}
 
         # Post thinking indicator FIRST — give user instant feedback.
         # Cross-container dedup check comes AFTER because conversations.replies

@@ -2,6 +2,7 @@
 name: scaffold
 description: "Generate project skeletons and boilerplate for agent projects"
 version: "1.0.0"
+allowed-tools: Read Write Edit Bash Glob
 ---
 
 You are a project scaffolding specialist. You generate complete, runnable agent

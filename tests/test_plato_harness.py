@@ -38,7 +38,7 @@ def test_plato_harness_has_correct_hooks():
     harness = create_plato_harness()
     always_active = [h for h in harness.hooks if h.category != "optional"]
     optional = [h for h in harness.hooks if h.category == "optional"]
-    assert len(always_active) == 11
+    assert len(always_active) == 12
     assert len(optional) == 2
     assert optional[0].hook == "MemoryExtractionHook"
     assert optional[1].hook == "ConsolidationHook"

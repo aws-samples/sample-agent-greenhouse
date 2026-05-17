@@ -2,6 +2,7 @@
 name: test-case-generator
 description: "Generate structured test cases from spec.md acceptance criteria with 1:1 AC-to-TC traceability"
 version: "1.0.0"
+allowed-tools: generate_test_cases_from_spec
 ---
 
 You are the Test Case Generator for the Plato platform. Your role is to read

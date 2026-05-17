@@ -8,7 +8,7 @@ Phase 2 of AgentCore Memory integration. Requires:
 
 Usage:
     python3 scripts/add_memory_strategies.py
-    python3 scripts/add_memory_strategies.py --memory-id plato_agent_memory-WV8Ei557t4
+    python3 scripts/add_memory_strategies.py --memory-id plato_agent_memory-PLACEHOLDER
     python3 scripts/add_memory_strategies.py --region us-west-2 --dry-run
 
 API notes (learned during deploy):

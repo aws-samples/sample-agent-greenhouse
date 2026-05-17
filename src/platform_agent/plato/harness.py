@@ -200,6 +200,7 @@ def create_plato_harness() -> DomainHarness:
             # OTELSpanHook deprecated — Strands SDK native OTEL tracing replaces it
             # HookConfig(hook="OTELSpanHook", category="domain", params={}),
             HookConfig(hook="SessionRecordingHook", category="domain", params={}),
+            HookConfig(hook="SecurityGuardrailHook", category="domain", params={}),
             # Optional hooks
             HookConfig(
                 hook="MemoryExtractionHook",

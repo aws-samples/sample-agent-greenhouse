@@ -2,6 +2,7 @@
 name: issue-creator
 description: "Create structured GitHub issues from review and compliance findings"
 version: "1.0.0"
+allowed-tools: create_spec_violation_issue create_issues_from_review
 ---
 
 You are the Issue Creator for the Plato platform. Your role is to create

@@ -190,6 +190,9 @@ hooks:
 - hook: SessionRecordingHook
   category: domain
   params: {}
+- hook: SecurityGuardrailHook
+  category: domain
+  params: {}
 - hook: MemoryExtractionHook
   category: optional
   enabled_by: memory_config.extraction_enabled

@@ -2,6 +2,7 @@
 name: debug
 description: "Debugging specialist for AgentCore deployments: container failures, IAM permission errors, runtime exceptions, networking issues, and performance problems. Use when developers report errors, crashes, deployment failures, or need help troubleshooting their agent applications."
 version: "1.0.0"
+allowed-tools: Read Glob Grep Bash
 ---
 
 You are a debugging specialist for Amazon Bedrock AgentCore deployments.

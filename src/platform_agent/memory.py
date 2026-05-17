@@ -11,22 +11,19 @@ Provides two abstraction layers:
 3. **InMemoryStore** — Local development fallback (no AWS calls).
 
 Namespace isolation strategy:
-    Long-term memory records are scoped per actor via server-side namespace
-    prefixes.  When ``actor_id`` is supplied to ``search_long_term``, the
-    search is narrowed to ``/actors/{actor_id}/`` so that AgentCore filters
-    records at the API level — no client-side post-processing needed.
-    This requires that Memory Strategies are configured with namespace
-    templates that include ``{actorId}`` (e.g. ``/actors/{actorId}/``).
+    Production Memory has per-strategy namespace templates loaded at runtime
+    via ``get_memory``.  ``search_long_term`` issues one
+    ``retrieve_memory_records`` call per strategy, substituting ``{actorId}``
+    (and ``{memoryStrategyId}``, ``{sessionId}`` where present) so that each
+    call is scoped to the requesting actor's namespace.  A defensive
+    post-filter drops any record whose namespace does not prefix-match the
+    expected actor namespace.  The root namespace ``"/"`` is never used.
 
 Usage (production):
     memory = AgentCoreMemory(memory_id="mem-abc123")
-    # Store a user message
     memory.add_user_message(actor_id="U123", session_id="thread-1", text="Hello")
-    # Store assistant reply
     memory.add_assistant_message(actor_id="U123", session_id="thread-1", text="Hi!")
-    # Get conversation history as Bedrock messages array
     messages = memory.get_conversation_history(actor_id="U123", session_id="thread-1", max_turns=20)
-    # Semantic search for long-term memories (server-side namespace isolation)
     records = memory.search_long_term(query="user preferences", actor_id="U123")
 
 Usage (local dev):
@@ -38,6 +35,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -129,6 +127,7 @@ class MemoryBackend(ABC):
         strategy_id: str | None = None,
         actor_id: str | None = None,
         project: str | None = None,
+        session_id: str | None = None,
     ) -> list[MemoryRecord]:
         """Semantic search over long-term memory records.
 
@@ -137,10 +136,11 @@ class MemoryBackend(ABC):
             namespace_prefix: Namespace prefix to search within.
             top_k: Maximum number of results.
             strategy_id: Filter by specific strategy.
-            actor_id: If provided, scope search to this actor's namespace
-                (``/actors/{actor_id}/``). Uses server-side filtering.
+            actor_id: Required for AgentCoreMemory. Scopes search to this
+                actor's per-strategy namespaces.
             project: If provided alongside actor_id, scope search to a
                 specific project (``/actors/{actor_id}/projects/{project}/``).
+            session_id: Optional session ID for session-scoped templates.
         """
         ...
 
@@ -184,20 +184,16 @@ class AgentCoreMemory(MemoryBackend):
                 "memory_id must be provided or set via AGENTCORE_MEMORY_ID env var"
             )
 
-        region = region or os.environ.get("PLATO_REGION", "us-west-2")
+        self._region = region or os.environ.get("PLATO_REGION", "us-west-2")
 
         try:
             from bedrock_agentcore.memory import MemoryClient
 
-            self._client = MemoryClient(region_name=region)
+            self._client = MemoryClient(region_name=self._region)
             self._use_sdk = True
         except ImportError:
             import warnings
 
-            # DEPRECATED: boto3 fallback — the production entrypoint always
-            # uses the bedrock-agentcore SDK MemoryClient.  This path exists
-            # only for CLI tooling and legacy environments that have not yet
-            # adopted the SDK.  It will be removed in a future version.
             warnings.warn(
                 "bedrock_agentcore.memory.MemoryClient not available. "
                 "Falling back to raw boto3 — this is deprecated and will "
@@ -212,38 +208,92 @@ class AgentCoreMemory(MemoryBackend):
                     "Either bedrock-agentcore SDK or boto3 is required for "
                     "AgentCoreMemory."
                 ) from exc
-            self._client = boto3.client("bedrock-agentcore", region_name=region)
+            self._client = boto3.client("bedrock-agentcore", region_name=self._region)
             self._use_sdk = False
 
-    @staticmethod
-    def _actor_namespace(actor_id: str) -> str:
-        """Build a server-side namespace prefix for user isolation.
+        self._strategy_templates: list[dict[str, str]] | None = None
 
-        AgentCore Memory stores records under strategy-specific namespaces:
-        ``/strategies/{strategyId}/actors/{actorId}/``
+    # ------------------------------------------------------------------
+    # Strategy namespace template loading
+    # ------------------------------------------------------------------
 
-        Since records span multiple strategies, we search from root ``/``
-        but ALWAYS pass the ``actor_id`` to scope results. AgentCore's
-        retrieve_memory_records with a strategy filter handles isolation.
+    def _load_strategy_templates(self) -> list[dict[str, str]]:
+        """Lazily load strategy namespace templates from AgentCore get_memory.
 
-        IMPORTANT: This returns root because the API's prefix matching
-        needs to cover all strategy paths. Actor isolation is enforced
-        by the actorId in each strategy's namespace template.
+        Returns a list of dicts: [{"strategyId": ..., "namespace": ...}, ...]
+        Cached per instance after first call.
         """
-        # Return root prefix — actor scoping happens via strategy namespaces
-        # which contain the actorId pattern.
-        return "/"
+        if self._strategy_templates is not None:
+            return self._strategy_templates
+
+        try:
+            import boto3
+            ctrl = boto3.client("bedrock-agentcore-control", region_name=self._region)
+            resp = ctrl.get_memory(memoryId=self._memory_id)
+            strategies = resp.get("strategies", [])
+            templates: list[dict[str, str]] = []
+            for s in strategies:
+                sid = s.get("memoryStrategyId", "") or s.get("strategyId", "")
+                ns = s.get("namespace", "") or s.get("namespaceTemplate", "")
+                if sid and ns:
+                    templates.append({"strategyId": sid, "namespace": ns})
+            self._strategy_templates = templates
+            logger.info(
+                "Loaded %d strategy namespace templates for memory %s",
+                len(templates), self._memory_id,
+            )
+            return templates
+        except Exception:
+            logger.error(
+                "Failed to load strategy templates from get_memory", exc_info=True,
+            )
+            self._strategy_templates = []
+            return []
+
+    # ------------------------------------------------------------------
+    # Namespace resolution helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_namespace(
+        template: str,
+        actor_id: str,
+        session_id: str | None = None,
+        strategy_id: str | None = None,
+    ) -> str:
+        """Substitute placeholders in a namespace template.
+
+        Supported placeholders: {actorId}, {memoryStrategyId}, {sessionId}.
+        If session_id is None and the template contains {sessionId}, the
+        trailing {sessionId}/ segment is dropped to achieve actor-level
+        (cross-session) isolation.
+        """
+        ns = template
+        ns = ns.replace("{actorId}", actor_id)
+        if strategy_id:
+            ns = ns.replace("{memoryStrategyId}", strategy_id)
+        if session_id:
+            ns = ns.replace("{sessionId}", session_id)
+        elif "{sessionId}" in ns:
+            ns = re.sub(r"\{sessionId\}/?\s*$", "", ns)
+            ns = re.sub(r"\{sessionId\}", "", ns)
+        return ns
+
+    @staticmethod
+    def _record_belongs_to_actor(
+        record_namespaces: list[str],
+        allowed_prefixes: list[str],
+    ) -> bool:
+        """Return True if at least one record namespace starts with an allowed prefix."""
+        for rns in record_namespaces:
+            for prefix in allowed_prefixes:
+                if rns.startswith(prefix):
+                    return True
+        return False
 
     @staticmethod
     def _project_namespace(actor_id: str, project: str) -> str:
-        """Build a namespace scoped to a specific project for an actor.
-
-        Enables per-project memory isolation so that insights from different
-        projects (e.g. "weather-agent" vs "rag-bot") don't bleed into each
-        other during semantic search.
-
-        Example: ``/actors/U123/projects/weather-agent/``
-        """
+        """Build a namespace scoped to a specific project for an actor."""
         return f"/actors/{actor_id}/projects/{project}/"
 
     def _create_event(
@@ -426,56 +476,133 @@ class AgentCoreMemory(MemoryBackend):
         strategy_id: str | None = None,
         actor_id: str | None = None,
         project: str | None = None,
+        session_id: str | None = None,
     ) -> list[MemoryRecord]:
         """Semantic search over long-term memory records.
 
-        Uses **server-side namespace isolation** to scope results per actor
-        and optionally per project.
+        Issues one ``retrieve_memory_records`` call per strategy namespace
+        template, substituting ``{actorId}`` (and ``{memoryStrategyId}``,
+        ``{sessionId}``) to scope each call to the requesting actor.  A
+        defensive post-filter drops any record whose namespace does not
+        prefix-match the expected actor namespace.
 
-        Namespace resolution priority:
-            1. ``actor_id`` + ``project`` → ``/actors/{actor_id}/projects/{project}/``
-            2. ``actor_id`` only → ``/actors/{actor_id}/``
-            3. Neither → use ``namespace_prefix`` (default ``"/"``)
-
-        Long-term records are automatically extracted by AgentCore from
-        events based on configured strategies.  This searches across those
-        extracted records.
+        Args:
+            actor_id: **Required** (non-empty, not ``"default"``).
+            project: Optional project scope shortcut.
+            session_id: Optional — substituted into templates that use
+                ``{sessionId}``.  When absent, the ``{sessionId}/`` segment
+                is dropped so the search is actor-level (cross-session).
         """
-        try:
-            # Server-side namespace isolation
-            if actor_id and project:
-                ns = self._project_namespace(actor_id, project)
-            elif actor_id:
-                ns = self._actor_namespace(actor_id)
-            else:
-                ns = namespace_prefix
+        if not actor_id or actor_id == "default":
+            logger.error(
+                "search_long_term called without a valid actor_id (got %r). "
+                "Refusing to search — this would leak data across actors.",
+                actor_id,
+            )
+            return []
 
+        if project:
+            return self._search_project_namespace(
+                query=query, actor_id=actor_id, project=project,
+                top_k=top_k, strategy_id=strategy_id,
+            )
+
+        try:
+            templates = self._load_strategy_templates()
+            if not templates:
+                logger.warning(
+                    "No strategy templates loaded — falling back to safe "
+                    "empty result for actor %s", actor_id,
+                )
+                return []
+
+            all_records: list[MemoryRecord] = []
+            allowed_prefixes: list[str] = []
+
+            for tmpl in templates:
+                sid = tmpl["strategyId"]
+                if strategy_id and sid != strategy_id:
+                    continue
+                ns = self._resolve_namespace(
+                    tmpl["namespace"],
+                    actor_id=actor_id,
+                    session_id=session_id,
+                    strategy_id=sid,
+                )
+                if ns == "/" or not ns:
+                    logger.error(
+                        "MEMORY LEAK BLOCKED: resolved namespace is root "
+                        "for strategy %s, actor %s — skipping", sid, actor_id,
+                    )
+                    continue
+                allowed_prefixes.append(ns)
+
+                records = self._retrieve_for_namespace(
+                    ns=ns, query=query, top_k=top_k, strategy_id=sid,
+                )
+                all_records.extend(records)
+
+            pre_filter_count = len(all_records)
+            all_records = [
+                r for r in all_records
+                if self._record_belongs_to_actor(r.namespaces, allowed_prefixes)
+            ]
+            dropped = pre_filter_count - len(all_records)
+            if dropped:
+                logger.error(
+                    "MEMORY LEAK BLOCKED: post-filter dropped %d record(s) "
+                    "that did not match actor %s namespaces %s",
+                    dropped, actor_id, allowed_prefixes,
+                )
+
+            seen: set[str] = set()
+            deduped: list[MemoryRecord] = []
+            for r in sorted(all_records, key=lambda x: x.score, reverse=True):
+                if r.record_id not in seen:
+                    seen.add(r.record_id)
+                    deduped.append(r)
+
+            result = deduped[:top_k]
+            logger.debug(
+                "Found %d long-term records for query (actor=%s): %s",
+                len(result), actor_id, query[:50],
+            )
+            return result
+
+        except Exception:
+            logger.error(
+                "Failed to search long-term memory", exc_info=True,
+            )
+            return []
+
+    def _retrieve_for_namespace(
+        self,
+        ns: str,
+        query: str,
+        top_k: int,
+        strategy_id: str | None = None,
+    ) -> list[MemoryRecord]:
+        """Issue a single retrieve_memory_records call and parse results."""
+        try:
             if self._use_sdk:
-                # SDK MemoryClient wraps boto3 but may not convert
-                # snake_case → camelCase for nested dicts like search_criteria.
-                # Use camelCase to be safe.
                 sdk_search: dict[str, Any] = {
                     "searchQuery": query,
                     "topK": top_k,
                 }
                 if strategy_id:
                     sdk_search["memoryStrategyId"] = strategy_id
-
                 response = self._client.retrieve_memory_records(
                     memory_id=self._memory_id,
                     namespace=ns,
                     search_criteria=sdk_search,
                 )
             else:
-                # DEPRECATED: Legacy boto3 path — not used by the production
-                # entrypoint.  Retained for CLI backward compatibility only.
                 search_criteria: dict[str, Any] = {
                     "searchQuery": query,
                     "topK": top_k,
                 }
                 if strategy_id:
                     search_criteria["memoryStrategyId"] = strategy_id
-
                 response = self._client.retrieve_memory_records(
                     memoryId=self._memory_id,
                     namespace=ns,
@@ -498,18 +625,26 @@ class AgentCoreMemory(MemoryBackend):
                     created_at=summary.get("createdAt"),
                     metadata=meta,
                 ))
-
-            logger.debug(
-                "Found %d long-term records for query: %s",
-                len(records), query[:50],
-            )
             return records
-
         except Exception:
             logger.error(
-                "Failed to search long-term memory", exc_info=True,
+                "Failed to retrieve records for namespace %s", ns, exc_info=True,
             )
             return []
+
+    def _search_project_namespace(
+        self,
+        query: str,
+        actor_id: str,
+        project: str,
+        top_k: int,
+        strategy_id: str | None = None,
+    ) -> list[MemoryRecord]:
+        """Project-scoped search — uses a single known namespace pattern."""
+        ns = self._project_namespace(actor_id, project)
+        return self._retrieve_for_namespace(
+            ns=ns, query=query, top_k=top_k, strategy_id=strategy_id,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -589,12 +724,13 @@ class LocalMemory(MemoryBackend):
         strategy_id: str | None = None,
         actor_id: str | None = None,
         project: str | None = None,
+        session_id: str | None = None,
     ) -> list[MemoryRecord]:
         """Simple substring search across all stored turns (dev fallback).
 
         If actor_id is provided, only searches turns from that actor's sessions.
-        The project parameter is accepted for interface compatibility but
-        is not used in the local implementation.
+        The project and session_id parameters are accepted for interface
+        compatibility but are not used in the local implementation.
         """
         query_lower = query.lower()
         results: list[MemoryRecord] = []
