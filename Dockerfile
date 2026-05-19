@@ -5,10 +5,30 @@ LABEL description="Platform Agent (PLAI) - multi-agent system for the agent depl
 
 WORKDIR /app
 
-# Install system deps (none needed beyond Python stdlib for core)
+# Install system deps (curl for health check, Node.js for Claude Code CLI)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get purge -y --auto-remove gnupg && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI (npm package). Used by the `claude_code` Strands tool
+# in entrypoint.py. CLI talks to Bedrock when CLAUDE_CODE_USE_BEDROCK=1 (set by
+# tools/claude_code.py at subprocess time, no provider key needed inside the
+# container — IAM does the auth).
+RUN npm install -g @anthropic-ai/claude-code && \
+    npm cache clean --force && \
+    claude --version
+
+# Tell claude-code CLI we're inside a recognized sandbox so it allows
+# --permission-mode bypassPermissions while running as root. AgentCore
+# Runtime containers are already isolated execution environments; the CLI's
+# root-check is intended for laptops, not for sandboxed runtimes.
+ENV IS_SANDBOX=1
 
 # Copy dependency spec first for better layer caching
 COPY pyproject.toml README.md requirements.txt ./

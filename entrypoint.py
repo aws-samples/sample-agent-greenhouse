@@ -665,18 +665,31 @@ def _extract_identity(payload: dict, context=None) -> tuple[str, str, str]:
     """Extract user identity from the Authorization header JWT or payload.
 
     When JWT Authorizer is configured, the Runtime validates the Bearer token
-    and forwards it via RequestContext.request_headers.  We decode the JWT
-    (ID token) to extract verified claims:
+    and forwards it via RequestContext.request_headers. We decode the JWT
+    (ID token) to extract verified claims and pick the canonical actor_id
+    in this priority order (most-stable, most-human-readable first):
 
-        sub            → actor_id (unique Cognito user identifier)
-        cognito:username → user_name
-        custom:role    → role (admin / standard)
-        custom:slack_id → available for audit / logging
+        1. cognito:username  → canonical actor_id (e.g. "melanie", "roger")
+        2. user_name field in payload (SigV4 / non-JWT path)
+        3. sub               → opaque Cognito UUID (legacy fallback only)
+        4. user_id / actor_id payload field → Slack ID (oldest legacy path)
+        5. "default"         → unauthenticated (treated as missing)
+
+    Why username, not sub:
+        Pre-2026-05 records were keyed by Slack ID (e.g. U0EXAMPLE000).
+        Post-2026-05 records were keyed by Cognito sub UUID. Switching
+        canonical actor_id to ``cognito:username`` is stable across both
+        Slack and direct-runtime callers, human-readable in logs, and
+        invariant under sub regeneration. Migration script
+        ``scripts/migrate_actor_namespace.py`` replays old Slack-ID
+        records under the username namespace.
 
     The JWT is already validated by the Runtime's JWT Authorizer, so we
-    only need to decode the payload — no signature verification here.
+    only decode the payload — no signature verification here.
 
-    Fallback: payload fields (backward compat when identity is disabled).
+    Other fields:
+        user_name  → from cognito:username when JWT present, else payload
+        role       → from custom:role JWT claim or payload "user_role"
 
     Returns:
         (actor_id, user_name, role) tuple.
@@ -692,15 +705,21 @@ def _extract_identity(payload: dict, context=None) -> tuple[str, str, str]:
             jwt_token = auth_header[7:]
             claims = _decode_jwt_claims(jwt_token)
             if claims:
-                actor_id = claims.get("sub", "default")
-                user_name = claims.get("cognito:username", "")
+                username = claims.get("cognito:username", "")
+                sub = claims.get("sub", "")
+                # Prefer username (stable, human-readable), fall back to
+                # sub (opaque UUID) only when username is missing.
+                actor_id = username or sub or "default"
+                user_name = username
                 role = claims.get("custom:role", "standard")
                 slack_id = claims.get("custom:slack_id", "")
 
                 logger.info(
-                    "Verified identity from JWT: actor=%s, name=%s, "
-                    "role=%s, slack_id=%s",
-                    actor_id, user_name, role, slack_id,
+                    "Verified identity from JWT: actor=%s (source=%s), name=%s, "
+                    "role=%s, slack_id=%s, sub=%s",
+                    actor_id,
+                    "username" if username else ("sub" if sub else "default"),
+                    user_name, role, slack_id, sub,
                 )
                 return actor_id, user_name, role
 
@@ -723,18 +742,41 @@ def _extract_identity(payload: dict, context=None) -> tuple[str, str, str]:
             )
             return actor_id, user_name, role
 
-    # Final fallback: payload (non-JWT mode / backward compatibility)
+    # Final fallback: payload (non-JWT mode / backward compatibility).
+    # Priority order:
+    #   1. cognito_username  → set by Slack handler when identity_enabled,
+    #                          this is the canonical actor_id.
+    #   2. user_name         → legacy Slack-handler field (was display name,
+    #                          may contain spaces — only used as last resort).
+    #   3. user_id           → legacy Slack-ID fallback for old payloads.
+    cognito_username = payload.get("cognito_username", "")
+    user_name_payload = payload.get("user_name", "")
     actor_id = (
-        payload.get("user_id")
+        cognito_username  # canonical Cognito username (e.g. "melanie")
+        or user_name_payload  # legacy fallback (Slack display name, may contain spaces)
+        or payload.get("user_id")  # legacy Slack ID fallback
         or payload.get("actor_id")
         or "default"
     )
-    user_name = payload.get("user_name", "")
+    # Sanitise: AgentCore namespace regex rejects spaces. If actor_id still
+    # contains a space (shouldn't, post-fix), collapse to underscore so we
+    # don't 4xx every call.
+    if " " in actor_id:
+        actor_id = actor_id.replace(" ", "_")
+    user_name = user_name_payload or cognito_username
     role = payload.get("user_role", "") or role
 
     logger.info(
-        "Identity from payload fallback: actor=%s, name=%s, role=%s",
-        actor_id, user_name, role,
+        "Identity from payload fallback: actor=%s (source=%s), name=%s, role=%s",
+        actor_id,
+        "cognito_username" if cognito_username else (
+            "user_name" if user_name_payload else (
+                "user_id" if payload.get("user_id") else (
+                    "actor_id" if payload.get("actor_id") else "default"
+                )
+            )
+        ),
+        user_name, role,
     )
     return actor_id, user_name, role
 

@@ -91,8 +91,15 @@ class CognitoTokenExchange:
 
     def __init__(self, config: Optional[CognitoConfig] = None):
         self.config = config or CognitoConfig.from_env()
-        if not self.config.user_pool_id:
-            # Try SSM as fallback
+        # Fallback to SSM when ANY required field is missing.
+        # Lambda env now strips COGNITO_CLIENT_SECRET (PLATO_SLACK_CONFIG_SOURCE=ssm),
+        # so checking only user_pool_id used to leave client_secret empty and
+        # AdminInitiateAuth would fail with "SECRET_HASH was not received".
+        if not (
+            self.config.user_pool_id
+            and self.config.client_id
+            and self.config.client_secret
+        ):
             self.config = CognitoConfig.from_ssm(self.config.region)
         self._cognito = boto3.client(
             "cognito-idp", region_name=self.config.region
@@ -158,6 +165,21 @@ class CognitoTokenExchange:
             return self._user_map[slack_user_id][1]
 
         return "standard"
+
+    def get_cognito_username(self, slack_user_id: str) -> str:
+        """Resolve a Slack user ID to its canonical Cognito username.
+
+        Returns the username (e.g. ``melanie``) when known, else empty string.
+        Used by the Slack handler to thread the canonical actor_id through
+        the SigV4 / WebSocket / HTTPS-OAuth payloads so the AgentCore
+        entrypoint never has to fall back to Slack display names.
+        """
+        if slack_user_id in self._user_map:
+            return self._user_map[slack_user_id][0]
+        self._lookup_user(slack_user_id)
+        if slack_user_id in self._user_map:
+            return self._user_map[slack_user_id][0]
+        return ""
 
     def _lookup_user(self, slack_user_id: str) -> Optional[tuple[str, str]]:
         """Look up Cognito username by Slack user ID.

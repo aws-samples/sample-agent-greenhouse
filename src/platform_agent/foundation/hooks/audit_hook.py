@@ -84,9 +84,27 @@ class AuditHook(HookBase):
         tool_use = getattr(event, "tool_use", {})
         tool_name = tool_use.get("name", "unknown") if isinstance(tool_use, dict) else "unknown"
 
+        # Strands AfterToolCallEvent exposes the tool result as ``result``
+        # (ToolResult dict), not ``tool_result``.  Read both for
+        # compatibility; otherwise tool_output_preview always logs "".
+        result_obj = getattr(event, "result", None)
+        if result_obj is None:
+            result_obj = getattr(event, "tool_result", "")
+        if isinstance(result_obj, dict):
+            content = result_obj.get("content")
+            if isinstance(content, list):
+                tool_output_text = "".join(
+                    (c.get("text", "") if isinstance(c, dict) else "")
+                    for c in content
+                )
+            else:
+                tool_output_text = str(result_obj)
+        else:
+            tool_output_text = str(result_obj or "")
+
         entry: dict[str, Any] = {
             "tool_name": tool_name,
-            "tool_output_preview": str(getattr(event, "tool_result", ""))[:200],
+            "tool_output_preview": tool_output_text[:200],
             "status": "completed",
             "timestamp": time.time(),
         }

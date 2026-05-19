@@ -72,6 +72,11 @@ def _build_cc_env() -> dict[str, str]:
     env["CLAUDE_CODE_USE_BEDROCK"] = "1"
     # Disable telemetry and interactive features in container
     env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+    # Tell claude CLI we're in a sandbox so it allows bypassPermissions
+    # while running as root inside the AgentCore Runtime container.
+    # The Dockerfile also sets this; keeping it here means dev-mode test
+    # runs against a local CLI install pick the same posture.
+    env.setdefault("IS_SANDBOX", "1")
     return env
 
 

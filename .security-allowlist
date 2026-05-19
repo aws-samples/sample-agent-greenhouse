@@ -1,0 +1,10 @@
+# Security lint allowlist.
+# Format: substring matched against "filepath:lineno:matchedline".
+# Comments start with '#'. Both fields are matched as plain
+# substrings; no regex. Each new entry MUST be reviewed manually.
+#
+# Test fixtures use literal token-shaped strings to exercise parsing
+# logic. They are not real credentials.
+tests/test_evaluator_specialists.py:AKIA1234567890ABCDEF
+tests/test_slack_integration.py:xoxb-test-token
+tests/test_slack_integration.py:xoxb-env-fallback
