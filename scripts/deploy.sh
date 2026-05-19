@@ -213,14 +213,14 @@ ssm = boto3.client('ssm', region_name='us-west-2')
 pool_id = ssm.get_parameter(Name='/plato/cognito/user-pool-id')['Parameter']['Value']
 client_id = ssm.get_parameter(Name='/plato/cognito/client-id')['Parameter']['Value']
 client_secret = ssm.get_parameter(Name='/plato/cognito/client-secret', WithDecryption=True)['Parameter']['Value']
-password = ssm.get_parameter(Name='/plato/cognito/users/plato-user/password', WithDecryption=True)['Parameter']['Value']
-msg = 'plato-user' + client_id
+password = ssm.get_parameter(Name='/plato/cognito/users/melanie/password', WithDecryption=True)['Parameter']['Value']
+msg = 'melanie' + client_id
 secret_hash = base64.b64encode(hmac.new(client_secret.encode(), msg.encode(), hashlib.sha256).digest()).decode()
 cognito = boto3.client('cognito-idp', region_name='us-west-2')
 resp = cognito.admin_initiate_auth(
     UserPoolId=pool_id, ClientId=client_id,
     AuthFlow='ADMIN_USER_PASSWORD_AUTH',
-    AuthParameters={'USERNAME': 'plato-user', 'PASSWORD': password, 'SECRET_HASH': secret_hash}
+    AuthParameters={'USERNAME': 'melanie', 'PASSWORD': password, 'SECRET_HASH': secret_hash}
 )
 print(resp['AuthenticationResult']['IdToken'])
 " 2>/dev/null)

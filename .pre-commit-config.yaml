@@ -1,0 +1,24 @@
+repos:
+  - repo: local
+    hooks:
+      - id: lint-no-inline-secrets
+        name: Block inline secrets
+        entry: scripts/lint_no_inline_secrets.sh --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - "--baseline"
+          - ".secrets.baseline"
+        exclude: |
+          (?x)^(
+              \.security-allowlist|
+              uv\.lock|
+              tests/test_evaluator_specialists\.py|
+              tests/test_slack_integration\.py
+          )$

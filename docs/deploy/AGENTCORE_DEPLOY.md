@@ -1,5 +1,26 @@
 # Deploying Foundation Agent to AgentCore Runtime
 
+> **🔐 Read [SECURITY.md](../../SECURITY.md) before deploying.**
+>
+> Hard rule: no plaintext credentials in container images, Lambda env
+> vars, AgentCore runtime env, or CI/CD pipelines. All secrets live in
+> AWS SSM Parameter Store as `SecureString` and are read at cold-start by
+> the workload's IAM role. The repo's pre-commit hook and the
+> `security-lint` GitHub Actions job block patterns that look like
+> tokens, AWS keys, GitHub PATs, and `*_TOKEN=`/`*_SECRET=` literals.
+>
+> Deployment scripts in this repo (`scripts/grant_lambda_ssm.sh`,
+> `scripts/strip_lambda_inline_secrets.sh`) walk through the migration
+> from inline env vars to SSM-only.
+>
+> AgentCore runtime updates MUST go through raw
+> `aws bedrock-agentcore-control update-agent-runtime` (with the full
+> `--authorizer-configuration` / `--network-configuration` / `--role-arn` /
+> `--environment-variables` / `--lifecycle-configuration` payload). The
+> `agentcore deploy` and `agentcore configure` toolkit commands clobber
+> the JWT authorizer, which silently breaks Slack auth. See `scripts/`
+> for examples.
+
 ## Prerequisites
 
 - AWS Account with credentials configured (`aws configure`)

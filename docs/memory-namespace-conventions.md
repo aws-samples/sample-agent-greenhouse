@@ -1,45 +1,97 @@
-# Memory Namespace Conventions
+# Memory namespace conventions
 
-## Production Strategy Namespace Templates
+The Plato runtime stores conversation events in **AgentCore Memory**, then
+relies on per-strategy *namespace templates* to decide which records each
+caller is allowed to see.
 
-Production memory (`plato_container_mem-PLACEHOLDER`) has per-strategy namespace
-templates that are loaded at runtime via `get_memory`. There is no single common
-prefix across all strategies:
+This doc explains how the production memory is laid out, why
+`scripts/setup_memory.py` is **stale**, and the contract that the runtime
+honours when calling `retrieve_memory_records`.
 
-| Strategy | Namespace Template |
-|---|---|
-| SemanticFacts | `/users/{actorId}/facts/` |
-| SessionSummaries | `/summaries/{actorId}/{sessionId}/` |
-| UserPreferences | `/users/{actorId}/preferences/` |
-| episodicMemory | `/strategies/{memoryStrategyId}/actors/{actorId}/` |
+## Production memory
 
-## How `search_long_term` Works (Post-Fix)
+* **Memory ID**: `your_memory-XXXXXXXXXX` (us-west-2)
 
-1. **actor_id is required** — empty string or `"default"` is rejected.
-2. Strategy templates are lazily loaded from AgentCore via
-   `bedrock-agentcore-control:get_memory` and cached per instance.
-3. One `retrieve_memory_records` call is issued per strategy, with
-   `{actorId}`, `{memoryStrategyId}`, and `{sessionId}` substituted.
-4. When `session_id` is not provided, the `{sessionId}/` segment is dropped
-   to enable cross-session (actor-level) search.
-5. A defensive **prefix-match post-filter** drops any record whose namespace
-   does not match a known actor-substituted template. Dropped records are
-   logged at ERROR level (`MEMORY LEAK BLOCKED`).
-6. Results are deduplicated by `record_id`, sorted by score, and truncated
-   to `top_k`.
+The memory has four strategies. Templates are loaded at runtime by
+`AgentCoreMemory._load_strategy_templates()` via
+`bedrock-agentcore-control:get_memory`:
 
-The root namespace `"/"` is **never** passed to `retrieve_memory_records`.
+| Strategy | strategyId | namespace template |
+|---|---|---|
+| SemanticFacts | `SemanticFacts-4BpYKz51rk` | `/users/{actorId}/facts/` |
+| SessionSummaries | `SessionSummaries-CP05VmBYB3` | `/summaries/{actorId}/{sessionId}/` |
+| UserPreferences | `UserPreferences-s23CZM64Lw` | `/users/{actorId}/preferences/` |
+| episodicMemory | `episodicMemory-1QD9JE5IHs` | `/strategies/{memoryStrategyId}/actors/{actorId}/` |
 
-## `setup_memory.py` is Stale
+There is no single prefix that covers all four. Do **not** hardcode
+`/users/{actorId}/`. The runtime substitutes `{actorId}`,
+`{memoryStrategyId}`, and `{sessionId}` per call.
 
-`scripts/setup_memory.py` uses a uniform namespace template
-(`/strategies/{memoryStrategyId}/actors/{actorId}/`) for all strategies, which
-does not match production. **Do not run `setup_memory.py` against the production
-memory resource** — it would overwrite the correct per-strategy templates.
+## actor_id canonicalisation (2026-05)
 
-## Contract Summary
+Pre-2026-05: `actor_id` = Slack user ID (`U0EXAMPLE000`).
+2026-05 (interim): `actor_id` = Cognito `sub` UUID
+(`2801b300-9081-702c-…`).
+2026-05 (current): `actor_id` = Cognito `cognito:username` (`melanie`,
+`roger`, `frank`).
 
-- `actor_id` is always required for long-term search.
-- No root namespace searches. Ever.
-- Post-filter is defense-in-depth — the primary isolation is the per-strategy
-  namespace prefix passed to the API.
+Switching to `cognito:username` because it is:
+
+* stable (does not regenerate when a Cognito user is recreated),
+* human-readable in CloudWatch and namespaces,
+* identical for JWT and SigV4 callers (the Slack handler now passes
+  `user_name` set to the Cognito username).
+
+`scripts/migrate_actor_namespace.py` replays old Slack-ID-keyed events
+under the new username namespace. After applying, the SemanticFacts /
+UserPreferences / SessionSummaries / episodicMemory strategies
+re-extract records under the new actor_id, typically within 1\u20135 min.
+
+## `setup_memory.py` is stale
+
+`scripts/setup_memory.py` declares
+`/strategies/{memoryStrategyId}/actors/{actorId}/` for **all** strategies.
+Production was provisioned via the AWS console or an earlier code path
+and does not match. Re-running `setup_memory.py` against
+`your_memory-XXXXXXXXXX` would clobber the real templates and
+make every strategy invisible.
+
+Until the script is rewritten to match production, **do not run it
+against the production memory**. Tests use ephemeral memories created in
+fixture setup.
+
+## `search_long_term` contract
+
+`AgentCoreMemory.search_long_term(actor_id=...)`:
+
+1. **Refuses** any call where `actor_id` is empty or the literal sentinel
+   `"default"`. This makes \u201croot\u201d searches (`namespace="/"`) impossible.
+2. Calls `_load_strategy_templates()` lazily and caches the result for
+   the lifetime of the instance.
+3. Issues one `retrieve_memory_records` call per strategy template,
+   substituting `{actorId}`, `{memoryStrategyId}`, and `{sessionId}` if
+   present. When `session_id` is missing, the `{sessionId}/` segment is
+   dropped to keep actor-level isolation but go cross-session.
+4. Merges results, applies a defensive `startswith` post-filter against
+   the resolved-actor prefix list, dedups by `record_id`, sorts by
+   score, returns top-k.
+5. Logs `MEMORY LEAK BLOCKED` at ERROR level any time the post-filter
+   actually drops a record. Investigate every such log line.
+
+`LocalMemory.search_long_term` keeps the legacy `project=...` shortcut
+working for tests; production uses `AgentCoreMemory`.
+
+## Defence-in-depth
+
+* `foundation/memory_access_guard.py` rejects `namespace=="/"` outright
+  so that even a code regression in `_actor_namespace`-style helpers
+  cannot drop the per-actor scope.
+* `entrypoint.py::_extract_identity` requires the JWT path or a
+  non-`default` payload identity. Calls without a real identity arrive
+  at `search_long_term` with `actor_id="default"` and are refused.
+* CloudWatch metric `MemoryLeakBlocked` (planned) will alert on
+  post-filter drops in production. Until that lands, search the runtime
+  log group for `MEMORY LEAK BLOCKED` daily.
+
+---
+Last updated: 2026-05-18 (Plato actor_id canonicalisation work).

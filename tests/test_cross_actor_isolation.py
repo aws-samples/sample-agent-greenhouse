@@ -1,6 +1,6 @@
 """Integration tests for cross-actor memory isolation.
 
-These tests hit the real AgentCore Memory backend (plato_container_mem-PLACEHOLDER)
+These tests hit the real AgentCore Memory backend (your_memory-XXXXXXXXXX)
 in us-west-2. They are gated by the PLATO_RUN_INTEGRATION=1 environment variable
 and skip gracefully when the backend is not reachable.
 
@@ -16,7 +16,7 @@ import uuid
 
 import pytest
 
-MEMORY_ID = "plato_container_mem-PLACEHOLDER"
+MEMORY_ID = "your_memory-XXXXXXXXXX"
 REGION = "us-west-2"
 ACTOR_A = f"TEST-LEAK-A-{uuid.uuid4().hex[:8]}"
 ACTOR_B = f"TEST-LEAK-B-{uuid.uuid4().hex[:8]}"

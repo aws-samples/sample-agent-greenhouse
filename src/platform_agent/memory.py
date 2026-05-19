@@ -230,13 +230,29 @@ class AgentCoreMemory(MemoryBackend):
             import boto3
             ctrl = boto3.client("bedrock-agentcore-control", region_name=self._region)
             resp = ctrl.get_memory(memoryId=self._memory_id)
-            strategies = resp.get("strategies", [])
+            # Response shape: {"memory": {"strategies": [...]}, ...}
+            # Older shape: {"strategies": [...]} — keep both for safety.
+            mem = resp.get("memory") if isinstance(resp.get("memory"), dict) else resp
+            strategies = mem.get("strategies", []) if isinstance(mem, dict) else []
             templates: list[dict[str, str]] = []
             for s in strategies:
-                sid = s.get("memoryStrategyId", "") or s.get("strategyId", "")
-                ns = s.get("namespace", "") or s.get("namespaceTemplate", "")
-                if sid and ns:
-                    templates.append({"strategyId": sid, "namespace": ns})
+                sid = (
+                    s.get("strategyId")
+                    or s.get("memoryStrategyId")
+                    or ""
+                )
+                # Real shape: "namespaces" / "namespaceTemplates" are list[str].
+                # Legacy shape: "namespace" / "namespaceTemplate" is str.
+                ns_list = (
+                    s.get("namespaces")
+                    or s.get("namespaceTemplates")
+                    or []
+                )
+                ns_single = s.get("namespace") or s.get("namespaceTemplate") or ""
+                ns_values = list(ns_list) if ns_list else ([ns_single] if ns_single else [])
+                for ns in ns_values:
+                    if sid and ns:
+                        templates.append({"strategyId": sid, "namespace": ns})
             self._strategy_templates = templates
             logger.info(
                 "Loaded %d strategy namespace templates for memory %s",

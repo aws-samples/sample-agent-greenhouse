@@ -123,7 +123,27 @@ class TelemetryHook(HookBase):
         tool_use_id = (
             tool_use.get("toolUseId", "unknown") if isinstance(tool_use, dict) else "unknown"
         )
-        tool_result = str(getattr(event, "tool_result", ""))
+        # Strands AfterToolCallEvent exposes the tool result as ``result``
+        # (a ToolResult dict / Exception), not ``tool_result``.  Older
+        # builds of this hook read ``tool_result`` and silently got an
+        # empty string — so output_size_bytes always logged 0 even when
+        # the tool returned a full payload.  Fall back through both
+        # attribute names so we handle either Strands version.
+        result_obj = getattr(event, "result", None)
+        if result_obj is None:
+            result_obj = getattr(event, "tool_result", "")
+        if isinstance(result_obj, dict):
+            # ToolResult is typically {"toolUseId":..., "status":..., "content":[{"text":...}, ...]}
+            content = result_obj.get("content")
+            if isinstance(content, list):
+                tool_result = "".join(
+                    (c.get("text", "") if isinstance(c, dict) else "")
+                    for c in content
+                )
+            else:
+                tool_result = str(result_obj)
+        else:
+            tool_result = str(result_obj or "")
 
         pending = self._pending_tool_calls.pop(tool_use_id, None)
         start_time = pending["start_time"] if pending else time.time()

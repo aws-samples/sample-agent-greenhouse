@@ -1,0 +1,30 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SSMGitHubToken",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters"
+            ],
+            "Resource": [
+                "arn:aws:ssm:us-west-2:123456789012:parameter/plato/github/*",
+                "arn:aws:ssm:us-west-2:123456789012:parameter/openclaw/github/token"
+            ]
+        },
+        {
+            "Sid": "DecryptParameterStore",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Decrypt"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "kms:ViaService": "ssm.us-west-2.amazonaws.com"
+                }
+            }
+        }
+    ]
+}

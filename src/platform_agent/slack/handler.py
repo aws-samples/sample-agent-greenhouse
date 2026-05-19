@@ -693,6 +693,11 @@ class SlackEventHandler:
                 "prompt": message.text,
                 "user_id": message.memory_actor_id,
                 "user_name": message.user_name,
+                "cognito_username": (
+                    self._token_exchange.get_cognito_username(message.user_id)
+                    if self.config.identity_enabled and hasattr(self, "_token_exchange")
+                    else ""
+                ),
             }).encode()
 
             invoke_params = {
@@ -829,6 +834,7 @@ class SlackEventHandler:
             "prompt": message.text,
             "user_id": message.memory_actor_id,
             "user_name": message.user_name,
+            "cognito_username": self._token_exchange.get_cognito_username(message.user_id),
         }).encode("utf-8")
 
         headers_dict = {
@@ -963,6 +969,11 @@ class SlackEventHandler:
                 "prompt": message.text,
                 "user_id": message.memory_actor_id,
                 "user_name": message.user_name,
+                "cognito_username": (
+                    self._token_exchange.get_cognito_username(message.user_id)
+                    if self.config.identity_enabled
+                    else ""
+                ),
                 "user_role": self._token_exchange.get_user_role(message.user_id) if self.config.identity_enabled else "",
                 "session_id": session_id,
             }))
