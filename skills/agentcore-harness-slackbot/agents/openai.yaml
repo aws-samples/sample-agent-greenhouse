@@ -1,0 +1,4 @@
+interface:
+  display_name: "AgentCore Harness Slackbot"
+  short_description: "Deploy a streaming Slack adapter for Harness"
+  default_prompt: "Use $agentcore-harness-slackbot to connect my AgentCore Harness to Slack with streaming responses."
